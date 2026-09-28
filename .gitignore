@@ -1,0 +1,56 @@
+# ==========================================================
+#  STM32 手柄项目 · Git 忽略规则
+#  原则：只提交「源码 + 工程定义」，绝不提交「编译产物」
+# ==========================================================
+
+# ---------- Keil MDK 输出目录 ----------
+# CubeMX 会按 Target 名建一个输出目录（本工程是 MDK-ARM/PS/），
+# 里面全是 .o / .axf / .crf / .hex / build_log，每次编译都变，不能提交。
+# 用通配 + 反向放行，这样改了 Target 名也不用改这里。
+MDK-ARM/*/
+!MDK-ARM/DebugConfig/
+!MDK-ARM/RTE/
+
+# ---------- 编译产物（兜底，防止跑到别处）----------
+*.o
+*.crf
+*.d
+*.axf
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.lnp
+*.sct
+*.dep
+*.iex
+*.build_log.htm
+*.bak
+
+# ---------- Keil 的用户界面状态 ----------
+# 每台机器的窗口布局、打开的文件都不同，提交了只会互相覆盖
+MDK-ARM/*.uvguix.*
+
+# ---------- 操作系统垃圾 ----------
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ---------- 编辑器 / IDE ----------
+.vscode/
+.idea/
+
+# ---------- CMSIS 里本项目用不到的大块头 ----------
+# CubeMX 会把整个 CMSIS 包拷进工程目录，其中 CMSIS-DSP 和 ARM/IAR/GCC 三套预编译
+# 数学库合计 50+ MB，而本工程既没引用也没链接它们——PS.uvprojx 的 IncludePath 里
+# 只有 CMSIS/Include 和 CMSIS/Device/ST/STM32F1xx/Include。
+# 文件留在磁盘上无妨，但不进版本库（否则仓库白白胖 60 MB，clone 也慢）。
+Drivers/CMSIS/DSP/
+Drivers/CMSIS/Lib/
+
+# 说明：
+#   PS.uvprojx  —— 必须提交（编译选项、器件、Flash 算法、ARM Compiler 版本都在里面）
+#   PS.uvoptx   —— 保留提交（调试器选型 ST-Link 在里面，删了新机器上要重选一次）
+#   PS.ioc      —— 必须提交（这是 CubeMX 的工程定义本体）
+#   Core/ Drivers/ Middlewares/ USB_DEVICE/  —— 全是源码，必须提交
