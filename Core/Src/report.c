@@ -19,9 +19,12 @@ void build_report(void)
 	/*暂且无用*/
 }
 
+static uint32_t tx_dropped = 0;   /* 调试用：被丢掉的帧数 */
+
 void send_report(void)
 {
-    /* TODO: USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, gamepad_report, 9);
-       It is asynchronous - on USBD_BUSY skip this tick instead of retrying. */
-	USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, gamepad_report, 9);
+    if (USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, gamepad_report, 9) == USBD_BUSY)
+    {
+        tx_dropped++;      /* 正常运行这个数应该接近 0；一直涨说明发得太快 */
+    }
 }

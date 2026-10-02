@@ -103,7 +103,7 @@ int main(void)
     if (HAL_GetTick() - last >= 1)
     {
         last = HAL_GetTick();
-				//scan_buttons();   /* read GPIOs and debounce                 */
+				scan_buttons();   /* read GPIOs and debounce                 */
 				//build_report();   /* fill the 9-byte HID report              */
 				send_report();    /* skip this tick if the previous transfer */
 									
