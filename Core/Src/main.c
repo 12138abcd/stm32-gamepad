@@ -23,7 +23,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "button_front.h"
+#include "report.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -98,6 +99,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+		uint32_t last = 0;
+    if (HAL_GetTick() - last >= 1)
+    {
+        last = HAL_GetTick();
+				scan_buttons();   /* read GPIOs and debounce                 */
+				build_report();   /* fill the 9-byte HID report              */
+				send_report();    /* skip this tick if the previous transfer */
+									
+    }
   }
   /* USER CODE END 3 */
 }
@@ -154,11 +164,21 @@ void SystemClock_Config(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /*Configure GPIO pins : up_Pin down_Pin left_Pin right_Pin
+                           A_Pin B_Pin X_Pin Y_Pin */
+  GPIO_InitStruct.Pin = up_Pin|down_Pin|left_Pin|right_Pin
+                          |A_Pin|B_Pin|X_Pin|Y_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 
