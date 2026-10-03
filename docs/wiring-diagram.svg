@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="1250" viewBox="0 0 1640 1250">
+<rect x="0" y="0" width="1640" height="1250" fill="#f2f4f7"/>
+<text x="52" y="56" font-size="29" fill="#1f2328" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">STM32 手柄 · 按键接线图（第 3 步：把 8 个按键焊到蓝板上）</text>
+<text x="52" y="90" font-size="17" fill="#5b6470" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">8 根信号线 + 1 根公共地线，全部接在蓝板【右侧】那一排排针上 —— 不用跨到左边那排</text>
+<rect x="40" y="116" width="800" height="1064" fill="#ffffff" rx="12" stroke="#ccd2da" stroke-width="1.5"/>
+<text x="64" y="156" font-size="21" fill="#1f2328" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">① 蓝板右侧排针 —— 哪个脚接哪个按键</text>
+<text x="64" y="184" font-size="15" fill="#5b6470" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">USB 口朝上放，右手边那一排，从上到下 21 个脚</text>
+<rect x="64" y="200" width="752" height="40" fill="#fff8ec" rx="8" stroke="#f3c98b" stroke-width="1.5"/>
+<text x="78" y="226" font-size="14.5" fill="#b54708" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">排针上有丝印 —— 按【名字】找脚，不要按第几个去数（不同批次顺序可能不同）</text>
+<rect x="64" y="256" width="752" height="36" fill="#fafbfc" rx="5"/>
+<rect x="64" y="256" width="112" height="36" fill="#eef1f4" rx="5"/>
+<text x="120" y="281" font-size="18" fill="#5b6470" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">3V3</text>
+<text x="196" y="281" font-size="15.5" fill="#98a2b3" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">不用</text>
+<rect x="64" y="295" width="752" height="36" fill="#e7f0ff" rx="5"/>
+<rect x="64" y="295" width="112" height="36" fill="#1668dc" rx="5"/>
+<text x="120" y="320" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">GND</text>
+<text x="196" y="320" font-size="16.5" fill="#1668dc" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">公共地 —— 所有按键的另一端都接这里</text>
+<rect x="64" y="334" width="752" height="36" fill="#e7f0ff" rx="5"/>
+<rect x="64" y="334" width="112" height="36" fill="#1668dc" rx="5"/>
+<text x="120" y="359" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">GND</text>
+<text x="196" y="359" font-size="16.5" fill="#1668dc" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">同上，就近取一个</text>
+<rect x="64" y="373" width="752" height="36" fill="#fafbfc" rx="5"/>
+<rect x="64" y="373" width="112" height="36" fill="#eef1f4" rx="5"/>
+<text x="120" y="398" font-size="18" fill="#5b6470" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">5V</text>
+<text x="196" y="398" font-size="15.5" fill="#98a2b3" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">不用（不接）</text>
+<rect x="64" y="412" width="752" height="36" fill="#eafbee" rx="5"/>
+<rect x="64" y="412" width="112" height="36" fill="#2f9e44" rx="5"/>
+<text x="120" y="437" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB12</text>
+<text x="196" y="437" font-size="16.5" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">十字键 · 上</text>
+<rect x="64" y="451" width="752" height="36" fill="#eafbee" rx="5"/>
+<rect x="64" y="451" width="112" height="36" fill="#2f9e44" rx="5"/>
+<text x="120" y="476" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB13</text>
+<text x="196" y="476" font-size="16.5" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">十字键 · 下</text>
+<rect x="64" y="490" width="752" height="36" fill="#eafbee" rx="5"/>
+<rect x="64" y="490" width="112" height="36" fill="#2f9e44" rx="5"/>
+<text x="120" y="515" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB14</text>
+<text x="196" y="515" font-size="16.5" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">十字键 · 左</text>
+<rect x="64" y="529" width="752" height="36" fill="#eafbee" rx="5"/>
+<rect x="64" y="529" width="112" height="36" fill="#2f9e44" rx="5"/>
+<text x="120" y="554" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB15</text>
+<text x="196" y="554" font-size="16.5" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">十字键 · 右</text>
+<rect x="64" y="568" width="752" height="36" fill="#fafbfc" rx="5"/>
+<rect x="64" y="568" width="112" height="36" fill="#eef1f4" rx="5"/>
+<text x="120" y="593" font-size="18" fill="#5b6470" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PA8</text>
+<text x="196" y="593" font-size="15.5" fill="#98a2b3" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">不用</text>
+<rect x="64" y="607" width="752" height="36" fill="#fafbfc" rx="5"/>
+<rect x="64" y="607" width="112" height="36" fill="#eef1f4" rx="5"/>
+<text x="120" y="632" font-size="18" fill="#5b6470" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PA9</text>
+<text x="196" y="632" font-size="15.5" fill="#98a2b3" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">不用</text>
+<rect x="64" y="646" width="752" height="36" fill="#fafbfc" rx="5"/>
+<rect x="64" y="646" width="112" height="36" fill="#eef1f4" rx="5"/>
+<text x="120" y="671" font-size="18" fill="#5b6470" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PA10</text>
+<text x="196" y="671" font-size="15.5" fill="#98a2b3" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">不用</text>
+<rect x="64" y="685" width="752" height="36" fill="#fff3f2" rx="5"/>
+<rect x="64" y="685" width="112" height="36" fill="#d92d20" rx="5"/>
+<text x="120" y="710" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PA11</text>
+<text x="196" y="710" font-size="15.5" fill="#d92d20" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">禁用 —— 这是 USB 的 DM</text>
+<rect x="64" y="724" width="752" height="36" fill="#fff3f2" rx="5"/>
+<rect x="64" y="724" width="112" height="36" fill="#d92d20" rx="5"/>
+<text x="120" y="749" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PA12</text>
+<text x="196" y="749" font-size="15.5" fill="#d92d20" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">禁用 —— 这是 USB 的 DP</text>
+<rect x="64" y="763" width="752" height="36" fill="#fff3f2" rx="5"/>
+<rect x="64" y="763" width="112" height="36" fill="#d92d20" rx="5"/>
+<text x="120" y="788" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PA15</text>
+<text x="196" y="788" font-size="15.5" fill="#d92d20" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">避开 —— 默认被 JTAG 占着</text>
+<rect x="64" y="802" width="752" height="36" fill="#fff3f2" rx="5"/>
+<rect x="64" y="802" width="112" height="36" fill="#d92d20" rx="5"/>
+<text x="120" y="827" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB3</text>
+<text x="196" y="827" font-size="15.5" fill="#d92d20" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">避开 —— 默认被 JTAG 占着</text>
+<rect x="64" y="841" width="752" height="36" fill="#fff3f2" rx="5"/>
+<rect x="64" y="841" width="112" height="36" fill="#d92d20" rx="5"/>
+<text x="120" y="866" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB4</text>
+<text x="196" y="866" font-size="15.5" fill="#d92d20" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">避开 —— 默认被 JTAG 占着</text>
+<rect x="64" y="880" width="752" height="36" fill="#eafbee" rx="5"/>
+<rect x="64" y="880" width="112" height="36" fill="#2f9e44" rx="5"/>
+<text x="120" y="905" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB5</text>
+<text x="196" y="905" font-size="16.5" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">面键 · A（手柄最下面那个）</text>
+<rect x="64" y="919" width="752" height="36" fill="#eafbee" rx="5"/>
+<rect x="64" y="919" width="112" height="36" fill="#2f9e44" rx="5"/>
+<text x="120" y="944" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB6</text>
+<text x="196" y="944" font-size="16.5" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">面键 · B（右边那个）</text>
+<rect x="64" y="958" width="752" height="36" fill="#eafbee" rx="5"/>
+<rect x="64" y="958" width="112" height="36" fill="#2f9e44" rx="5"/>
+<text x="120" y="983" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB7</text>
+<text x="196" y="983" font-size="16.5" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">面键 · X（左边那个）</text>
+<rect x="64" y="997" width="752" height="36" fill="#eafbee" rx="5"/>
+<rect x="64" y="997" width="112" height="36" fill="#2f9e44" rx="5"/>
+<text x="120" y="1022" font-size="18" fill="#ffffff" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB8</text>
+<text x="196" y="1022" font-size="16.5" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">面键 · Y（最上面那个）</text>
+<rect x="64" y="1036" width="752" height="36" fill="#fafbfc" rx="5"/>
+<rect x="64" y="1036" width="112" height="36" fill="#eef1f4" rx="5"/>
+<text x="120" y="1061" font-size="18" fill="#5b6470" font-family="Consolas, monospace" text-anchor="middle" font-weight="bold">PB9</text>
+<text x="196" y="1061" font-size="15.5" fill="#98a2b3" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">不用</text>
+<text x="64" y="1101" font-size="14.5" fill="#5b6470" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">颜色：绿 = 要接按键的信号脚　　蓝 = 公共地　　红 = 绝对不要用</text>
+<rect x="880" y="116" width="720" height="484" fill="#ffffff" rx="12" stroke="#ccd2da" stroke-width="1.5"/>
+<text x="904" y="156" font-size="21" fill="#1f2328" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">② 轻触开关的 4 个脚 —— 只有 2 个电气节点</text>
+<text x="904" y="182" font-size="15" fill="#5b6470" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">最容易翻车的一点：4 个脚看着像 4 个接点，其实两两内部相通</text>
+<rect x="1130" y="224" width="150" height="108" fill="#e9ecef" rx="10" stroke="#868e96" stroke-width="2"/>
+<text x="1205" y="270" font-size="15" fill="#5b6470" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle">轻触开关</text>
+<text x="1205" y="298" font-size="13" fill="#98a2b3" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle">（按下把 A、B 接通）</text>
+<line x1="1078" y1="250" x2="1130" y2="250" stroke="#1668dc" stroke-width="3.5"/>
+<line x1="1078" y1="306" x2="1130" y2="306" stroke="#1668dc" stroke-width="3.5"/>
+<circle cx="1078" cy="250" r="7" fill="#1668dc"/>
+<circle cx="1078" cy="306" r="7" fill="#1668dc"/>
+<line x1="1056" y1="250" x2="1056" y2="306" stroke="#1668dc" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="1084" y="240" font-size="15" fill="#1668dc" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">1</text>
+<text x="1084" y="324" font-size="15" fill="#1668dc" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">2</text>
+<text x="1034" y="284" font-size="22" fill="#1668dc" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">A</text>
+<line x1="1280" y1="250" x2="1332" y2="250" stroke="#2f9e44" stroke-width="3.5"/>
+<line x1="1280" y1="306" x2="1332" y2="306" stroke="#2f9e44" stroke-width="3.5"/>
+<circle cx="1332" cy="250" r="7" fill="#2f9e44"/>
+<circle cx="1332" cy="306" r="7" fill="#2f9e44"/>
+<line x1="1354" y1="250" x2="1354" y2="306" stroke="#2f9e44" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="1326" y="240" font-size="15" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">3</text>
+<text x="1326" y="324" font-size="15" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">4</text>
+<text x="1376" y="284" font-size="22" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">B</text>
+<text x="904" y="376" font-size="16" fill="#1f2328" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">左侧 1、2 内部相通（节点 A）；右侧 3、4 内部相通（节点 B）。</text>
+<text x="904" y="404" font-size="16" fill="#1f2328" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">所以取【对角】两个脚 —— 1+4 或 2+3：一个接 GPIO，另一个接 GND。</text>
+<rect x="904" y="508" width="672" height="72" fill="#fff3f2" rx="8" stroke="#f5b5b0" stroke-width="1.5"/>
+<text x="920" y="536" font-size="16" fill="#d92d20" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">别把同一侧的两个脚分别接 GPIO 和 GND ——</text>
+<text x="920" y="562" font-size="16" fill="#d92d20" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">它们本来就连着，等于这个键永远按下，joy.cpl 里那个按钮会一直亮。</text>
+<rect x="880" y="620" width="720" height="560" fill="#ffffff" rx="12" stroke="#ccd2da" stroke-width="1.5"/>
+<text x="904" y="660" font-size="21" fill="#1f2328" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">③ 按键实际排布（俯视）—— 哪个开关是哪个</text>
+<text x="904" y="686" font-size="15" fill="#5b6470" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">左手十字键（绿）　右手面键（橙）　每个键标出它接哪根线</text>
+<rect x="1028" y="810" width="56" height="56" fill="#eef1f4" rx="6" stroke="#ccd2da" stroke-width="1.5"/>
+<rect x="1028" y="748" width="56" height="56" fill="#eafbee" rx="8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1056" y="784" font-size="22" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">上</text>
+<text x="1056" y="736" font-size="14" fill="#1668dc" font-family="Consolas, monospace" text-anchor="middle">PB12</text>
+<rect x="1028" y="872" width="56" height="56" fill="#eafbee" rx="8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1056" y="908" font-size="22" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">下</text>
+<text x="1056" y="952" font-size="14" fill="#1668dc" font-family="Consolas, monospace" text-anchor="middle">PB13</text>
+<rect x="966" y="810" width="56" height="56" fill="#eafbee" rx="8" stroke="#2f9e44" stroke-width="2"/>
+<text x="994" y="846" font-size="22" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">左</text>
+<text x="956" y="843" font-size="14" fill="#1668dc" font-family="Consolas, monospace" text-anchor="end">PB14</text>
+<rect x="1090" y="810" width="56" height="56" fill="#eafbee" rx="8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1118" y="846" font-size="22" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">右</text>
+<text x="1156" y="843" font-size="14" fill="#1668dc" font-family="Consolas, monospace" text-anchor="start">PB15</text>
+<text x="904" y="928" font-size="16" fill="#2f9e44" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">十字键</text>
+<circle cx="1392" cy="728" r="31" fill="#fff5e8" stroke="#e8890c" stroke-width="2"/>
+<text x="1392" y="736" font-size="23" fill="#e8890c" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">Y</text>
+<text x="1392" y="685" font-size="14" fill="#1668dc" font-family="Consolas, monospace" text-anchor="middle">PB8</text>
+<circle cx="1296" cy="810" r="31" fill="#fff5e8" stroke="#e8890c" stroke-width="2"/>
+<text x="1296" y="818" font-size="23" fill="#e8890c" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">X</text>
+<text x="1253" y="815" font-size="14" fill="#1668dc" font-family="Consolas, monospace" text-anchor="end">PB7</text>
+<circle cx="1488" cy="810" r="31" fill="#fff5e8" stroke="#e8890c" stroke-width="2"/>
+<text x="1488" y="818" font-size="23" fill="#e8890c" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">B</text>
+<text x="1531" y="815" font-size="14" fill="#1668dc" font-family="Consolas, monospace" text-anchor="start">PB6</text>
+<circle cx="1392" cy="892" r="31" fill="#fff5e8" stroke="#e8890c" stroke-width="2"/>
+<text x="1392" y="900" font-size="23" fill="#e8890c" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="middle" font-weight="bold">A</text>
+<text x="1392" y="947" font-size="14" fill="#1668dc" font-family="Consolas, monospace" text-anchor="middle">PB5</text>
+<text x="1576" y="875" font-size="16" fill="#e8890c" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="end" font-weight="bold">面键</text>
+<line x1="904" y1="1072" x2="1576" y2="1072" stroke="#1668dc" stroke-width="3.5"/>
+<text x="904" y="1058" font-size="15" fill="#1668dc" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">公共地母线 —— 8 个开关的另一端都接到这条线上</text>
+<text x="904" y="1100" font-size="15" fill="#1668dc" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">这条线再引一根到蓝板的 GND 脚（右侧排针从上数第 2 或第 3 个）</text>
+<line x1="1056" y1="776" x2="1056" y2="1072" stroke="#1668dc" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="1056" y1="956" x2="1056" y2="1072" stroke="#1668dc" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="994" y1="838" x2="994" y2="1072" stroke="#1668dc" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="1118" y1="838" x2="1118" y2="1072" stroke="#1668dc" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="1392" y1="743.5" x2="1392" y2="1072" stroke="#1668dc" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="1296" y1="825.5" x2="1296" y2="1072" stroke="#1668dc" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="1488" y1="825.5" x2="1488" y2="1072" stroke="#1668dc" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="1392" y1="953" x2="1392" y2="1072" stroke="#1668dc" stroke-width="1.2" stroke-dasharray="4 4"/>
+<text x="904" y="1158" font-size="14.5" fill="#5b6470" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">“上/下/左/右”指的是手柄上十字键的位置；A 在最下、Y 在最上。</text>
+<text x="52" y="1224" font-size="16" fill="#1f2328" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start" font-weight="bold">焊完先量再上电：</text>
+<text x="190" y="1224" font-size="16" fill="#5b6470" font-family="Microsoft YaHei, Segoe UI, sans-serif" text-anchor="start">万用表蜂鸣档，按键【没按时应不通、按下时应通】—— 这一步能提前发现虚焊和接错脚。</text>
+</svg>

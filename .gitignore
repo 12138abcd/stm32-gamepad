@@ -28,6 +28,9 @@ MDK-ARM/*/
 *.build_log.htm
 *.bak
 
+# Keil 自动生成的 Component Viewer 描述文件（打开工程时 IDE 会自己重建，不是源码）
+MDK-ARM/EventRecorderStub.scvd
+
 # ---------- Keil 的用户界面状态 ----------
 # 每台机器的窗口布局、打开的文件都不同，提交了只会互相覆盖
 MDK-ARM/*.uvguix.*

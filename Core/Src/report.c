@@ -19,7 +19,7 @@ void build_report(void)
 	/*暂且无用*/
 }
 
-static uint32_t tx_dropped = 0;   /* 调试用：被丢掉的帧数 */
+volatile uint32_t tx_dropped = 0;   /* 调试用：被丢掉的帧数 */
 
 void send_report(void)
 {
