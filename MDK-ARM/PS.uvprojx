@@ -415,6 +415,16 @@
               <FilePath>..\Core\Src\report.c</FilePath>
             </File>
             <File>
+              <FileName>joystick.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\joystick.c</FilePath>
+            </File>
+            <File>
+              <FileName>joystick.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\joystick.h</FilePath>
+            </File>
+            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/main.c</FilePath>

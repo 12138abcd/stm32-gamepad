@@ -30,7 +30,6 @@
    [3] X   [4] Y   [5] Rx   [6] Ry   [7] Z   [8] Rz          */
 extern uint8_t gamepad_report[9];
 
-void build_report(void);
 void send_report(void);
 
 #endif /* __REPORT_H */

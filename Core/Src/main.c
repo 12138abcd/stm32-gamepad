@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "button_front.h"
+#include "joystick.h"
 #include "report.h"
 /* USER CODE END Includes */
 
@@ -111,7 +112,7 @@ int main(void)
     {
         last = HAL_GetTick();
 				scan_buttons();   /* read GPIOs and debounce                 */
-				build_report();   /* fill the 9-byte HID report              */
+				joystick_update(); /* read ADC, fill X/Y axes                 */
 				send_report();    /* skip this tick if the previous transfer */
 									
     }
