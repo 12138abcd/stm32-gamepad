@@ -58,6 +58,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define VRx1_Pin GPIO_PIN_0
+#define VRx1_GPIO_Port GPIOA
+#define VRy1_Pin GPIO_PIN_1
+#define VRy1_GPIO_Port GPIOA
 #define up_Pin GPIO_PIN_12
 #define up_GPIO_Port GPIOB
 #define down_Pin GPIO_PIN_13
@@ -74,6 +78,8 @@ void Error_Handler(void);
 #define X_GPIO_Port GPIOB
 #define Y_Pin GPIO_PIN_8
 #define Y_GPIO_Port GPIOB
+#define SW1_Pin GPIO_PIN_9
+#define SW1_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
