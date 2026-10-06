@@ -425,6 +425,16 @@
               <FilePath>..\Core\Inc\joystick.h</FilePath>
             </File>
             <File>
+              <FileName>latency_probe.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\latency_probe.c</FilePath>
+            </File>
+            <File>
+              <FileName>latency_probe.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\latency_probe.h</FilePath>
+            </File>
+            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/main.c</FilePath>

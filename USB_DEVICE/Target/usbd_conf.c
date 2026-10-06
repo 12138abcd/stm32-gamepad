@@ -27,23 +27,24 @@
 #include "usbd_customhid.h"
 
 /* USER CODE BEGIN Includes */
-/* ===================== 调试打点：USB 延迟测量 =====================
+#include "latency_probe.h"   /* 延迟测量模块（总开关关掉时下面的钩子会退化成空操作）*/
+
+/* ================= 延迟测量打点钩子 =================
    本文件下面那个 DataIn 回调里有一行：
        USBD_LL_DataInStage((USBD_HandleTypeDef*)hpcd->pData, epnum, hpcd->IN_ep[epnum].xfer_buff);
    这一行就是"报告真正发上 USB 总线"的时刻。我们用同名宏把它包起来，
-   变成"先调打点钩子、再原样调用"。
+   变成"先调测量钩子、再原样调用"。
 
-   为什么用宏而不是注册回调：注册机制（USE_HAL_PCD_REGISTER_CALLBACKS）打开后
-   实测回调没有被调用，而这一段直接写在生成代码的调用点上，必定生效。
-   C 的递归宏不会二次展开，所以宏体里那个同名调用就是真正的函数调用，不会无限递归。
+   为什么用宏而不是注册回调：HAL 的回调注册机制（USE_HAL_PCD_REGISTER_CALLBACKS）
+   打开后实测回调不会被调用（原因至今没查清），而这一段直接写在生成代码的调用点上，
+   必定生效。C 的递归宏不会二次展开，所以宏体里那个同名调用就是真正的函数调用，
+   不会无限递归。
 
    写在 USER CODE 区，CubeMX 重新生成代码不会丢。 */
-extern void Probe_DataInHook(uint8_t epnum);
-
-#define USBD_LL_DataInStage(pdev, epnum, pdata)                       \
-        do {                                                          \
-          Probe_DataInHook((uint8_t)(epnum));                         \
-          USBD_LL_DataInStage((pdev), (epnum), (pdata));              \
+#define USBD_LL_DataInStage(pdev, epnum, pdata)                        \
+        do {                                                           \
+          LatencyProbe_DataInHook((uint8_t)(epnum));                   \
+          USBD_LL_DataInStage((pdev), (epnum), (pdata));               \
         } while (0)
 /* USER CODE END Includes */
 
