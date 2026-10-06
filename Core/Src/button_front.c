@@ -12,9 +12,13 @@
 
 /* ============================ 消抖参数 ============================
    单位是"扫描拍数"，一拍 = 1ms（scan_buttons 每 1ms 被调用一次）。
-   按下要快、松开可以慢，因为人对按下的延迟敏感得多。              */
-#define DB_PRESS_TICKS     2u   /* 按下：连续 2 拍一致就认 */
-#define DB_RELEASE_TICKS   4u   /* 松开：连续 4 拍一致才认 */
+   按下要快、松开可以慢，因为人对按下的延迟敏感得多。
+
+   ⚠️ 这两个值【故意写成 volatile 变量而不是宏】，是为了做"消抖参数
+   对延迟的影响"实验：直接用 Keil 的 Watch 窗口改值即可，**不用重新
+   编译烧写**，两轮实验能在同一次运行里对比，测试条件完全一致。 */
+volatile uint8_t db_press_ticks   = 2u;   /* 按下：连续几拍一致就认（默认 2）*/
+volatile uint8_t db_release_ticks = 4u;   /* 松开：连续几拍一致才认（默认 4）*/
 
 /* 按键是上拉输入：按下时引脚被拉到地，读到 0 */
 #define BTN_DOWN(port, pin)   (HAL_GPIO_ReadPin((port), (pin)) == GPIO_PIN_RESET)
@@ -40,7 +44,7 @@ volatile uint32_t count_l3  = 0;   /* 摇杆被按下的次数 */
 static uint8_t deb_update(deb_t *d, uint8_t raw_pressed)
 {
     /* 三目运算符：读到按下就用"按下阈值"，否则用"松开阈值" */
-    uint8_t threshold = raw_pressed ? DB_PRESS_TICKS : DB_RELEASE_TICKS;
+    uint8_t threshold = raw_pressed ? db_press_ticks : db_release_ticks;
 
     if (raw_pressed == d->stable)
     {

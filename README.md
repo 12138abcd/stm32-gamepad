@@ -162,13 +162,21 @@ Windows 自带的游戏控制器属性页（`joy.cpl`）可以直观看到结果
 ### 步骤
 
 1. 用 CubeMX 打开 `PS.ioc`，`Project Manager → Toolchain` 选 **MDK-ARM V5**，GENERATE CODE
-2. **⚠️ 生成之后必须检查两处**（CubeMX 会把它们刷回默认值）：
-   * `USB_DEVICE/Target/usbd_conf.h` 的 `USBD_CUSTOM_HID_REPORT_DESC_SIZE` 必须是 **78**
-   * 编译一次，**必须 0 warning** —— 出现 `excess elements in array initializer` 就说明上一条被刷回了 2
-3. Keil 打开 `MDK-ARM/PS.uvprojx`，`Options for Target → Target → ARM Compiler` 选 **version 6**
-4. `Project → Rebuild all target files`
-5. `Options for Target → Debug` 选 ST-Link Debugger，确认 `SW Device` 能列出 IDCODE
-6. 下载，然后 `Win + R` → `joy.cpl` 验收
+2. **⚠️ 生成之后必须检查三处**（CubeMX 会把它们刷回默认值；这三个值是联动的）：
+
+   | 值 | 在哪里 | 必须是 | 改错的后果 |
+   | --- | --- | :---: | --- |
+   | `USBD_CUSTOM_HID_REPORT_DESC_SIZE` | `USB_DEVICE/Target/usbd_conf.h` | **78** | 数组被截断 → 报 `excess elements in array initializer`；烧进去描述符残缺，设备管理器出黄色感叹号 |
+   | `CUSTOM_HID_EPIN_SIZE` | 同上（+ `usbd_customhid.h`） | **9** | 9 字节报告被拆成 5 个 USB 事务（2+2+2+2+1），总线效率和延迟都变差 |
+   | `CUSTOM_HID_FS_BINTERVAL` | 同上（+ `usbd_customhid.h`） | **1** | **主机每 5ms 才来取一次报告** → 更新率上限 200Hz、延迟被量化到 5ms |
+   | `USE_HAL_PCD_REGISTER_CALLBACKS` | `Core/Inc/stm32f1xx_hal_conf.h` | **1** | PCD 回调注册 API 全部不可见 → 编译报 `did you mean 'HAL_PCD_DataInStageCallback'?`（延迟测量打点需要这一项） |
+
+   > 两个头文件里的值都加了 `#ifndef` 保护、且默认值已改成正确值，**所以即使 `usbd_conf.h` 被刷掉，也不会退化成原来的 2 / 5**。但 `usbd_conf.h` 仍要复查——它是"一眼能看到"的那一份。
+3. 编译一次，**必须 0 warning**
+4. Keil 打开 `MDK-ARM/PS.uvprojx`，`Options for Target → Target → ARM Compiler` 选 **version 6**
+5. `Project → Rebuild all target files`
+6. `Options for Target → Debug` 选 ST-Link Debugger，确认 `SW Device` 能列出 IDCODE
+7. 下载，然后 `Win + R` → `joy.cpl` 验收
 
 ---
 
@@ -197,9 +205,20 @@ CubeMX 生成的 `usb_device.h` **没有**为 `hUsbDeviceFS` 提供 `extern` 声
 **只写不读的变量会被编译器整个优化掉**（内存里根本没有它）。测计数器的变量必须加 `volatile`，
 并且不要加 `static`。
 
-**6. 报告描述符长度宏和端点大小必须同步改**
-描述符数组长度、`USBD_CUSTOM_HID_REPORT_DESC_SIZE`、`CUSTOM_HID_EPIN_SIZE` 是**三个联动**的值，
-只改一个会得到"设备认出来了、属性页能打开，但按键点不亮"这类迷惑症状。
+**6. 有三个"联动值"必须一起改，而且都会被 CubeMX 刷回默认值**
+`USBD_CUSTOM_HID_REPORT_DESC_SIZE`（描述符字节数 **78**）、`CUSTOM_HID_EPIN_SIZE`（端点包大小 **9**）、
+`CUSTOM_HID_FS_BINTERVAL`（轮询间隔 **1ms**）——它们分住在两个头文件里，**没有任何编译期检查盯着**。
+只改其中一个，症状的迷惑性各不相同：
+
+* 改漏**描述符长度** → 编译直接报 `excess elements in array initializer`，好发现
+* 改漏**端点包大小** → 功能正常，但一个 9 字节报告要拆成 **5 个 USB 事务**（2+2+2+2+1）
+* 改漏**轮询间隔** → **功能完全正常，但主机每 5ms 才取一次数据，延迟被悄悄量化到 5ms**
+
+**最后一条最阴，因为它看起来一切正常。** 项目原本报的是"P50 ≤ 5ms"，而配置层面
+就已经把这个预算吃光了——固件里再怎么优化都没用。
+
+> 这正是"每一项都要有数据能证明"这条原则的价值所在：**功能对 ≠ 性能对**，
+> 而性能问题往往在配置层面就已经埋下，只有靠测量才能发现。
 
 ---
 
