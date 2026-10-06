@@ -147,6 +147,38 @@ Windows 自带的游戏控制器属性页（`joy.cpl`）可以直观看到结果
 
 ![joy.cpl 测试页](docs/joycpl-test.png)
 
+### 端到端输入延迟（实测）
+
+**测量方法**：不依赖任何外部仪器。用 Cortex-M3 的 `DWT->CYCCNT`（72MHz 自由运行
+周期计数器，分辨率 **13.9 ns**）在固件内部测量「按键原始电平第一次变化 → 该帧报告
+真正发上 USB 总线（端点 DataIn 回调）」的耗时，按 10µs 分桶累加直方图并实时计算分位数。
+
+**只统计"按下"**：松开阈值是 4 拍（防误松开），而松手晚几毫秒没人感知得到——
+业界测手柄 input lag 也只测按下。
+
+**两轮对照实验（各按 A 键 100 次，其他条件完全一致）**：
+
+| `db_press_ticks` | P50 | P95 | P99 | min | 误触发 |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 2 拍 | 1590 µs | 1960 µs | 2000 µs | 1031 µs | 0 |
+| **1 拍（定稿）** | **520 µs** | **970 µs** | **1020 µs** | **26 µs** | **0** |
+
+**对照指标**：
+
+| 指标 | 实测 | 目标 | 余量 |
+| --- | :---: | :---: | :---: |
+| P50 | **0.52 ms** | ≤ 5 ms | 90% |
+| P95 | **0.97 ms** | ≤ 10 ms | 90% |
+| P99 | **1.02 ms** | ≤ 15 ms | 93% |
+
+**关键证据是 `min`**：26µs 与 1031µs 相差 **1005µs ≈ 正好一个 1ms 扫描节拍** ——
+说明"每多一拍消抖 = 固定多 1ms 延迟"是**量出来的，不是估的**。两轮误触发都是 0，
+所以取延迟更低的 1 拍。
+
+> 测量过程中还揪出一个隐蔽的时序 bug：按下阈值改成 1 拍后，「报告变化」和「原始电平
+> 变化」会落在同一拍，而原代码先处理前者 —— 导致测量起点永远等不到终点，测出了
+> 139 ms 这种物理上不可能的值。调整处理顺序后，两种阈值都正确。
+
 ---
 
 ## 六、编译与烧写
@@ -169,7 +201,6 @@ Windows 自带的游戏控制器属性页（`joy.cpl`）可以直观看到结果
    | `USBD_CUSTOM_HID_REPORT_DESC_SIZE` | `USB_DEVICE/Target/usbd_conf.h` | **78** | 数组被截断 → 报 `excess elements in array initializer`；烧进去描述符残缺，设备管理器出黄色感叹号 |
    | `CUSTOM_HID_EPIN_SIZE` | 同上（+ `usbd_customhid.h`） | **9** | 9 字节报告被拆成 5 个 USB 事务（2+2+2+2+1），总线效率和延迟都变差 |
    | `CUSTOM_HID_FS_BINTERVAL` | 同上（+ `usbd_customhid.h`） | **1** | **主机每 5ms 才来取一次报告** → 更新率上限 200Hz、延迟被量化到 5ms |
-   | `USE_HAL_PCD_REGISTER_CALLBACKS` | `Core/Inc/stm32f1xx_hal_conf.h` | **1** | PCD 回调注册 API 全部不可见 → 编译报 `did you mean 'HAL_PCD_DataInStageCallback'?`（延迟测量打点需要这一项） |
 
    > 两个头文件里的值都加了 `#ifndef` 保护、且默认值已改成正确值，**所以即使 `usbd_conf.h` 被刷掉，也不会退化成原来的 2 / 5**。但 `usbd_conf.h` 仍要复查——它是"一眼能看到"的那一份。
 3. 编译一次，**必须 0 warning**
@@ -239,7 +270,10 @@ CubeMX 生成的 `usb_device.h` **没有**为 `hUsbDeviceFS` 提供 `extern` 声
 Core/
   Inc/  Src/        CubeMX 生成的外设初始化 + 应用层
     button_front.c  按键扫描、消抖状态机、Hat 编码
+    joystick.c      摇杆 ADC → 轴值（中心校准 + 行程拉伸 + 死区）
     report.c        HID 报告缓冲区与发送
+    latency_probe.c 可选的延迟测量模块（DWT 计时 + 直方图分位数）
+                    总开关在它的头文件里，关掉后一行机器码都不占
 USB_DEVICE/         USB 设备描述符与 Custom HID 类接口
   App/usbd_custom_hid_if.c   报告描述符数组在这里
   Target/usbd_conf.h         REPORT_DESC_SIZE 在这里
