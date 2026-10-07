@@ -153,42 +153,37 @@
         <Ww>
           <count>0</count>
           <WinNumber>1</WinNumber>
-          <ItemText>tx_dropped</ItemText>
+          <ItemText>adc_buf[0]</ItemText>
         </Ww>
         <Ww>
           <count>1</count>
           <WinNumber>1</WinNumber>
-          <ItemText>count_a</ItemText>
+          <ItemText>adc_buf[1]</ItemText>
         </Ww>
         <Ww>
           <count>2</count>
           <WinNumber>1</WinNumber>
-          <ItemText>count_pov</ItemText>
+          <ItemText>adc_buf[2]</ItemText>
         </Ww>
         <Ww>
           <count>3</count>
           <WinNumber>1</WinNumber>
-          <ItemText>probe_fall</ItemText>
+          <ItemText>adc_buf[3]</ItemText>
         </Ww>
         <Ww>
           <count>4</count>
           <WinNumber>1</WinNumber>
-          <ItemText>probe_rise</ItemText>
+          <ItemText>adc_buf[4]</ItemText>
         </Ww>
         <Ww>
           <count>5</count>
           <WinNumber>1</WinNumber>
-          <ItemText>probe_datain_any</ItemText>
+          <ItemText>adc_buf[5]</ItemText>
         </Ww>
         <Ww>
           <count>6</count>
           <WinNumber>1</WinNumber>
-          <ItemText>probe_datain_ep1</ItemText>
-        </Ww>
-        <Ww>
-          <count>7</count>
-          <WinNumber>1</WinNumber>
-          <ItemText>hUsbDeviceFS.dev_state</ItemText>
+          <ItemText>adc_buf[6]</ItemText>
         </Ww>
       </WatchWindow1>
       <WatchWindow2>

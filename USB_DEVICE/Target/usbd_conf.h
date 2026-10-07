@@ -77,16 +77,8 @@
 /*---------- -----------*/
 #define USBD_CUSTOM_HID_REPORT_DESC_SIZE     78
 /*---------- -----------*/
-/* ⚠️⚠️ 下面这两个值（连同上面那个 DESC_SIZE）是"三个联动值"，
-   CubeMX 重新生成代码时会把它们刷回默认值，每次 GENERATE CODE 之后必须复查！
-     报告描述符数组长度  = USBD_CUSTOM_HID_REPORT_DESC_SIZE = 78
-     HID 报告长度        = CUSTOM_HID_EPIN_SIZE           = 9
-     轮询间隔            = CUSTOM_HID_FS_BINTERVAL        = 1 (ms)
-   漏改的后果：DESC_SIZE 错 → 编译报 excess elements 或设备 Code 10；
-               EPIN_SIZE 错 → 9 字节报告被拆成 5 个 USB 事务；
-               BINTERVAL 错 → 主机 5ms 才取一次，延迟被量化到 5ms。 */
-#define CUSTOM_HID_EPIN_SIZE        0x09U
 #define CUSTOM_HID_FS_BINTERVAL     0x1
+#define CUSTOM_HID_EPIN_SIZE        0x09U
 
 /****************************************/
 /* #define for FS and HS identification */

@@ -41,24 +41,13 @@ extern "C" {
 /** @defgroup USBD_CUSTOM_HID_Exported_Defines
   * @{
   */
-/* ⚠️ 本工程的 HID 报告是 9 字节，wMaxPacketSize 必须跟报告长度对齐，
-   否则一个报告会被拆成多个 USB 事务（9 字节 = 2+2+2+2+1，共 5 个事务）。
-   ST 原来的默认值 0x02U 对应它自带的 2 字节示例报告，对本工程是错的。
-   这里加上 #ifndef 保护 —— 原版没有保护，导致在 usbd_conf.h 里定义或命令行
-   -D 覆盖都无效，只能改这个文件。加保护之后就能从 usbd_conf.h 管了。 */
-#ifndef CUSTOM_HID_EPIN_ADDR
 #define CUSTOM_HID_EPIN_ADDR                 0x81U
-#endif
 #ifndef CUSTOM_HID_EPIN_SIZE
 #define CUSTOM_HID_EPIN_SIZE                 0x09U
-#endif
+#endif /* CUSTOM_HID_EPIN_SIZE */
 
-#ifndef CUSTOM_HID_EPOUT_ADDR
 #define CUSTOM_HID_EPOUT_ADDR                0x01U
-#endif
-#ifndef CUSTOM_HID_EPOUT_SIZE
-#define CUSTOM_HID_EPOUT_SIZE                0x02U   /* OUT 用于主机下发（以后做振动），暂保持 2 */
-#endif
+#define CUSTOM_HID_EPOUT_SIZE                0x02U
 
 #define USB_CUSTOM_HID_CONFIG_DESC_SIZ       41U
 #define USB_CUSTOM_HID_DESC_SIZ              9U
@@ -67,9 +56,6 @@ extern "C" {
 #define CUSTOM_HID_HS_BINTERVAL            0x05U
 #endif /* CUSTOM_HID_HS_BINTERVAL */
 
-/* ⚠️ 默认改成 0x01U（1ms 轮询）。ST 原值 0x05U 意味着主机每 5ms 才来取一次报告，
-   报告更新率上限只有 200Hz、延迟被量化到 5ms —— 直接卡死本项目 P50 ≤ 5ms 的目标。
-   同样加 #ifndef 保护，usbd_conf.h 里也显式定义一份（双保险，防止被刷回）。 */
 #ifndef CUSTOM_HID_FS_BINTERVAL
 #define CUSTOM_HID_FS_BINTERVAL            0x01U
 #endif /* CUSTOM_HID_FS_BINTERVAL */

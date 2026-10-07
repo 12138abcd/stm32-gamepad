@@ -1,7 +1,7 @@
 /**
   ******************************************************************************
   * @file    button_front.c
-  * @brief   扫描 8 个前部按键（十字键 + A/B/X/Y），更新 HID 报告。
+  * @brief   扫描 8 个前部按键（十字键 + A/B/X/Y）和两个摇杆按下（SW1/SW2），更新 HID 报告。
   ******************************************************************************
   */
 
@@ -47,12 +47,14 @@ typedef struct {
 
 static deb_t db_up, db_down, db_left, db_right;   /* 十字键 4 个触点 */
 static deb_t db_a,  db_b,    db_x,    db_y;       /* 4 个面键 */
-static deb_t db_l3;                               /* 摇杆按下（SW → PB9） */
+static deb_t db_l3;                               /* 左摇杆按下（SW1 → PB9） */
+static deb_t db_r3;                               /* 右摇杆按下（SW2 → PA8） */
 
 /* ---- 调试用计数器：加 volatile，否则会被优化掉，调试器里永远是 0 ---- */
 volatile uint32_t count_a   = 0;   /* A 键被按下的次数 */
 volatile uint32_t count_pov = 0;   /* 十字键方向变化的次数 */
-volatile uint32_t count_l3  = 0;   /* 摇杆被按下的次数 */
+volatile uint32_t count_l3  = 0;   /* 左摇杆被按下的次数 */
+volatile uint32_t count_r3  = 0;   /* 右摇杆被按下的次数 */
 
 /* 非阻塞消抖：每拍调一次，不等待、不阻塞。
    只有"和当前判断矛盾的读数"连续出现够多拍，才改判。 */
@@ -123,7 +125,7 @@ void scan_buttons(void)
     if (deb_update(&db_y, BTN_DOWN(Y_GPIO_Port, Y_Pin))) gamepad_report[0] |=  BTN_Y;
     else                                                 gamepad_report[0] &= ~BTN_Y;
 
-    /* ---------- 摇杆按下（SW）→ 报告 byte 1 的 bit0，即 L3 / Button 9 ----------
+    /* ---------- 左摇杆按下（SW1）→ 报告 byte 1 的 bit0，即 L3 / Button 9 ----------
        注意这时写的是 gamepad_report[1]，不是 [0] —— byte1 的 bit0 在 HID 里编号是"按钮 9"。
        接法跟普通按键完全一样：模块的 SW 脚接 PB9，内部上拉，按下读到 0。 */
     uint8_t l3_old = db_l3.stable;
@@ -132,4 +134,15 @@ void scan_buttons(void)
     if (l3_new && !l3_old) count_l3++;
     if (l3_new) gamepad_report[1] |=  BTN_L3;
     else        gamepad_report[1] &= ~BTN_L3;
+
+    /* ---------- 右摇杆按下（SW2）→ 报告 byte 1 的 bit1，即 R3 / Button 10 ----------
+       ⚠️ 是 bit1（BTN_R3 = 0x02），不是 bit0 —— L3 占的是 bit0。
+       接法与 L3 完全相同：模块的 SW 脚接 PA8，内部上拉，按下读到 0。
+       GPIO 初始化在 main.c 的 MX_GPIO_Init() 里（PA8 = SW2 + PullUp）。 */
+    uint8_t r3_old = db_r3.stable;
+    uint8_t r3_new = deb_update(&db_r3, BTN_DOWN(SW2_GPIO_Port, SW2_Pin));
+
+    if (r3_new && !r3_old) count_r3++;
+    if (r3_new) gamepad_report[1] |=  BTN_R3;
+    else        gamepad_report[1] &= ~BTN_R3;
 }
