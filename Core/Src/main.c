@@ -96,6 +96,15 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
+		/* ADC 自校准：消除内部电容失配造成的偏移误差。
+	   必须在 HAL_ADC_Start / Start_DMA 之前调用一次。
+	   不校准时，不同芯片的偏移能差几十 LSB —— 这正是 STM32 与 GD32 上
+	   静置中心对不上的原因（1984~2019 vs 2060~2088）。 */
+	if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_buf, 6);
 
 	/* 打开延迟测量装置（打点脚 PB10 + DWT 周期计数器）。
