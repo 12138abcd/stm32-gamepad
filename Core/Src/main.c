@@ -24,7 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "button_front.h"
-#include "joystick.h"
+#include "analog_input.h"
 #include "report.h"
 #include "latency_probe.h"   /* 可选的延迟测量模块；总开关在它的头文件里 */
 /* USER CODE END Includes */
@@ -126,7 +126,7 @@ int main(void)
     {
         last = HAL_GetTick();
 				scan_buttons();   /* read GPIOs and debounce                 */
-				joystick_update(); /* read ADC, fill X/Y axes                 */
+				analog_update(); /* read ADC, fill X/Y axes                 */
 				LatencyProbe_OnTick();   /* 延迟测量：输入有变化就打点 + 计时 */
 				send_report();    /* skip this tick if the previous transfer */
 									
@@ -215,7 +215,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_71CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();

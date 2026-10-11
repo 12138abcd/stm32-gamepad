@@ -41,7 +41,7 @@
    triggers released (0).
    报告的填充由各输入模块负责：
      button_front.c → byte0（按键）和 byte2（十字键 Hat）
-     joystick.c     → byte3 / byte4（左摇杆 X / Y）                        */
+     analog_input.c     → byte3 / byte4（左摇杆 X / Y）                        */
 uint8_t gamepad_report[9] = { 0x00, 0x00, 0x08, 0x80, 0x80, 0x80, 0x80, 0x00, 0x00 };
 
 volatile uint32_t tx_dropped = 0;   /* 调试用：端点忙、这一帧被丢掉 */

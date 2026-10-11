@@ -155,7 +155,7 @@ void LatencyProbe_Init(void)
     DWT->CTRL  |= DWT_CTRL_CYCCNTENA_Msk;
 }
 
-/* 主循环里每 1ms 调一次（scan_buttons / joystick_update 之后、send_report 之前）。
+/* 主循环里每 1ms 调一次（scan_buttons / analog_update 之后、send_report 之前）。
    干两件事：
      ① 报告内容变化 → 把打点脚拉低（给逻辑分析仪一个可见的边沿）
      ② 按键【原始电平】变化 → 武装一次测量，记下起点时间

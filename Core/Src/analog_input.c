@@ -1,14 +1,18 @@
 /**
   ******************************************************************************
-  * @file    joystick.c
-  * @brief   模拟摇杆：把 ADC 的原始读数校准映射成 HID 报告的轴字段。
+  * @file    analog_input.c
+  * @brief   模拟输入映射：把 ADC 原始读数换算成 HID 报告的轴字段。
+  *
+  *          本模块含【两类规律完全不同】的被测量：
+  *            摇杆（双极性）：中心 128，两侧各自到 0 / 255  —— 见 axis_map()
+  *            扳机（单极性）：0 = 松开、255 = 到底，无中心点 —— 见 trig_map()
   ******************************************************************************
   */
 
-#include "joystick.h"
+#include "analog_input.h"
 #include "report.h"        /* gamepad_report[] */
 
-/* ============================ 校准常量 ============================
+/* ============================ 摇杆校准常量 ============================
    2026-10-07 重测 —— **在加上 ADC 自校准之后**，两平台各测一遍取平均。
 
    ⚠️ 历史教训：这一版之前的值（左 2001/2000、右 1984/2019）是在**没有调用
@@ -48,10 +52,10 @@
      [3] = PA3 = IN3 = 右摇杆 VRy → 报告 byte6 = Ry
      [4] = PB0 = IN8 = 左扳机 LT  → 报告 byte7 = Z
      [5] = PB1 = IN9 = 右扳机 RT  → 报告 byte8 = Rz
-   ⚠️ [4]/[5] 的固件映射还没写（扳机器件也未定），先留在缓冲区里不参与上报。 */
+   六路全部已接入并完成映射（2026-10-07）。 */
 extern uint16_t adc_buf[6];
 
-/* ============================ 轴映射 ============================
+/* ============================ 摇杆映射（双极性） ============================
    12 位原始值（0~4095）→ 8 位报告值（0~255），以实测中心为 128。
    左右半行程分别拉伸：电位器天生不对称，分开算才能让"推到底 = 255"。
    纯函数：没有状态，输入一样输出就一样。左右摇杆共用这一份逻辑。 */
@@ -76,14 +80,36 @@ static uint8_t axis_map(uint16_t raw, int32_t center, uint16_t half_neg, uint16_
     return (uint8_t)v;
 }
 
-/* ============================ 更新报告里的轴字段 ============================ */
-void joystick_update(void)
+/* ============================ 扳机映射（单极性） ============================
+   直滑电位器 B10K：1 → GND、3 → 3.3V、2 → ADC。
+   2026-10-07 实测（两路一致，上限取下限以保证两路都能到 255）：
+       松开端（1 脚侧）：adc_buf[4] = 0~10      、adc_buf[5] = 0~5
+       按到底（3 脚侧）：adc_buf[4] = 4093~4095 、adc_buf[5] = 4094~4095
+
+   ⚠️ 与摇杆的根本差别：扳机【没有中心点】—— 0 = 松开、255 = 到底，
+      所以【绝不能复用 axis_map()】（那是中心 128、两边各 128 的双极性映射）。
+   松手抖动最大 10 counts，经整数除法自然归零（10×255÷4093 = 0），故无需死区。 */
+#define TRIG_MIN_RAW   0        /* 松开端的下限 */
+#define TRIG_MAX_RAW   4093     /* 按到底的下限 */
+
+static uint8_t trig_map(uint16_t raw)
 {
-    /* ---- 左摇杆：byte3 = X，byte4 = Y（常量是 2026-10-05 实测值） ---- */
+    if (raw <= TRIG_MIN_RAW) return 0;
+    if (raw >= TRIG_MAX_RAW) return 255;
+    return (uint8_t)(((uint32_t)(raw - TRIG_MIN_RAW) * 255u) / (TRIG_MAX_RAW - TRIG_MIN_RAW));
+}
+
+/* ============================ 更新报告里的轴字段 ============================ */
+void analog_update(void)
+{
+    /* ---- 摇杆（双极性）：byte3 = X、byte4 = Y、byte5 = Rx、byte6 = Ry ---- */
     gamepad_report[3] = axis_map(adc_buf[0], JS_LX_CENTER, JS_LX_HALF_L, JS_LX_HALF_R);
     gamepad_report[4] = axis_map(adc_buf[1], JS_LY_CENTER, JS_LY_HALF_U, JS_LY_HALF_D);
-
-    /* ---- 右摇杆：byte5 = Rx，byte6 = Ry（常量是 2026-10-07 实测值） ---- */
     gamepad_report[5] = axis_map(adc_buf[2], JS_RX_CENTER, JS_RX_HALF_L, JS_RX_HALF_R);
     gamepad_report[6] = axis_map(adc_buf[3], JS_RY_CENTER, JS_RY_HALF_U, JS_RY_HALF_D);
+
+    /* ---- 扳机（单极性）：byte7 = Z = 左扳机 LT（PB0 / adc_buf[4]）
+                          byte8 = Rz = 右扳机 RT（PB1 / adc_buf[5]） ---- */
+    gamepad_report[7] = trig_map(adc_buf[4]);
+    gamepad_report[8] = trig_map(adc_buf[5]);
 }

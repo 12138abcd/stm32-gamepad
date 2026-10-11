@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F103xB</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;     ../Drivers/STM32F1xx_HAL_Driver/Inc;     ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;     ../Drivers/CMSIS/Device/ST/STM32F1xx/Include;     ../Drivers/CMSIS/Include;     ../USB_DEVICE/App;     ../USB_DEVICE/Target;     ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc;     ../Middlewares/ST/STM32_USB_Device_Library/Class/CustomHID/Inc;     ..\MDK-ARM</IncludePath>
+              <IncludePath>../Core/Inc;      ../Drivers/STM32F1xx_HAL_Driver/Inc;      ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;      ../Drivers/CMSIS/Device/ST/STM32F1xx/Include;      ../Drivers/CMSIS/Include;      ../USB_DEVICE/App;      ../USB_DEVICE/Target;      ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc;      ../Middlewares/ST/STM32_USB_Device_Library/Class/CustomHID/Inc;      ..\MDK-ARM</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -415,14 +415,14 @@
               <FilePath>..\Core\Src\report.c</FilePath>
             </File>
             <File>
-              <FileName>joystick.c</FileName>
+              <FileName>analog_input.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Core\Src\joystick.c</FilePath>
+              <FilePath>..\Core\Src\analog_input.c</FilePath>
             </File>
             <File>
-              <FileName>joystick.h</FileName>
+              <FileName>analog_input.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\Core\Inc\joystick.h</FilePath>
+              <FilePath>..\Core\Inc\analog_input.h</FilePath>
             </File>
             <File>
               <FileName>latency_probe.c</FileName>

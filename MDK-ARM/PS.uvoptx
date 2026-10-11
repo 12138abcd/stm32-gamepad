@@ -431,8 +431,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\Core\Src\joystick.c</PathWithFileName>
-      <FilenameWithoutPath>joystick.c</FilenameWithoutPath>
+      <PathWithFileName>..\Core\Src\analog_input.c</PathWithFileName>
+      <FilenameWithoutPath>analog_input.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
@@ -443,8 +443,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\Core\Inc\joystick.h</PathWithFileName>
-      <FilenameWithoutPath>joystick.h</FilenameWithoutPath>
+      <PathWithFileName>..\Core\Inc\analog_input.h</PathWithFileName>
+      <FilenameWithoutPath>analog_input.h</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
