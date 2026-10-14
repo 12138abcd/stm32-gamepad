@@ -235,67 +235,32 @@
         <Ww>
           <count>9</count>
           <WinNumber>2</WinNumber>
-          <ItemText>probe_hist[0]</ItemText>
+          <ItemText>db_press_ticks </ItemText>
         </Ww>
         <Ww>
           <count>10</count>
           <WinNumber>2</WinNumber>
-          <ItemText>probe_hist[13]</ItemText>
+          <ItemText>probe_clear </ItemText>
         </Ww>
         <Ww>
           <count>11</count>
           <WinNumber>2</WinNumber>
-          <ItemText>probe_hist[100]</ItemText>
+          <ItemText>tx_fail</ItemText>
         </Ww>
         <Ww>
           <count>12</count>
           <WinNumber>2</WinNumber>
-          <ItemText>probe_hist[150]</ItemText>
+          <ItemText>tx_dropped</ItemText>
         </Ww>
         <Ww>
           <count>13</count>
           <WinNumber>2</WinNumber>
-          <ItemText>probe_hist[200]</ItemText>
+          <ItemText>probe_timeout</ItemText>
         </Ww>
         <Ww>
           <count>14</count>
           <WinNumber>2</WinNumber>
-          <ItemText>probe_hist[250]</ItemText>
-        </Ww>
-        <Ww>
-          <count>15</count>
-          <WinNumber>2</WinNumber>
-          <ItemText>probe_hist[300]</ItemText>
-        </Ww>
-        <Ww>
-          <count>16</count>
-          <WinNumber>2</WinNumber>
-          <ItemText>probe_hist[350]</ItemText>
-        </Ww>
-        <Ww>
-          <count>17</count>
-          <WinNumber>2</WinNumber>
-          <ItemText>probe_hist[390]</ItemText>
-        </Ww>
-        <Ww>
-          <count>18</count>
-          <WinNumber>2</WinNumber>
-          <ItemText>db_press_ticks </ItemText>
-        </Ww>
-        <Ww>
-          <count>19</count>
-          <WinNumber>2</WinNumber>
-          <ItemText>probe_clear </ItemText>
-        </Ww>
-        <Ww>
-          <count>20</count>
-          <WinNumber>2</WinNumber>
-          <ItemText>probe_count</ItemText>
-        </Ww>
-        <Ww>
-          <count>21</count>
-          <WinNumber>2</WinNumber>
-          <ItemText>count_a</ItemText>
+          <ItemText>probe_count_skip</ItemText>
         </Ww>
       </WatchWindow2>
       <Tracepoint>

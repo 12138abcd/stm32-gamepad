@@ -163,22 +163,19 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	uint32_t last = 0;
+  /* ⚠️ 这里是"调度器启动失败"的兜底死循环 —— 正常永远走不到。
+     osKernelStart() 永不返回，控制权已交给调度器；
+     真正的 1ms 输入任务是下面的 StartDefaultTask()（用 vTaskDelayUntil 定周期）。
+
+     ⚠️ 历史遗留：这里原来放着裸机时代的主循环
+        （if (HAL_GetTick() - last >= 1) { scan_buttons(); ... }），
+     启用 FreeRTOS 后它成了死代码，却看起来像"固件还在轮询"，容易误判，故已删除。
+     ⚠️ 不要在这个 while(1) 里写任何有实际动作的代码 —— 它永远跑不到。 */
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		//非阻塞软定时器
-    if (HAL_GetTick() - last >= 1)
-    {
-        last = HAL_GetTick();
-				scan_buttons();   /* read GPIOs and debounce                 */
-				analog_update(); /* read ADC, fill X/Y axes                 */
-				LatencyProbe_OnTick();   /* 延迟测量：输入有变化就打点 + 计时 */
-				send_report();    /* skip this tick if the previous transfer */
-									
-    }
   }
   /* USER CODE END 3 */
 }
