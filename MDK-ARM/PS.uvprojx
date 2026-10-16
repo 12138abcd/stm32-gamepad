@@ -562,6 +562,11 @@
               </FileOption>
             </File>
             <File>
+              <FileName>nrf24.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\nrf24.c</FilePath>
+            </File>
+            <File>
               <FileName>nrf24_test.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Core\Src\nrf24_test.c</FilePath>
