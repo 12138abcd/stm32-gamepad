@@ -44,8 +44,8 @@
 
 /* USER CODE BEGIN Includes */
 /* Section where include file can be added */
-/* ⚠️ 以下三项�? CMSIS-RTOS2 包装层（cmsis_os2.c / freertos_os2.h）必�?�?
-   �? CubeMX 生成 FreeRTOSConfig.h 时漏了�?�缺了会报：
+/* ⚠️ 以下三项�?? CMSIS-RTOS2 包装层（cmsis_os2.c / freertos_os2.h）必�??�??
+   �?? CubeMX 生成 FreeRTOSConfig.h 时漏了�?�缺了会报：
      freertos_os2.h:31:  error: expected "FILENAME" or <FILENAME>
      freertos_os2.h:134: error: "Definition INCLUDE_xTaskGetCurrentTaskHandle must equal 1 ..."
    放在 USER CODE 区内，CubeMX 重新生成代码不会丢�?? */
@@ -55,11 +55,11 @@
 #define INCLUDE_xTaskGetCurrentTaskHandle   1
 #define INCLUDE_xSemaphoreGetMutexHolder    1
 
-/* ⚠️ 让 cmsis_os2.c 不要实现 SysTick_Handler。
-   原因：CubeMX 在 timebase 不是 SysTick 时会启用本文件下方的
-   `#define xPortSysTickHandler SysTick_Handler`，把 port.c 里的处理函数改名成
-   SysTick_Handler；而 cmsis_os2.c 也实现了同名函数 → 链接报 L6200E 重复定义。
-   置 1 后由 port.c 独家提供 SysTick_Handler，分工干净。 */
+/* ⚠️ �? cmsis_os2.c 不要实现 SysTick_Handler�?
+   原因：CubeMX �? timebase 不是 SysTick 时会启用本文件下方的
+   `#define xPortSysTickHandler SysTick_Handler`，把 port.c 里的处理函数改名�?
+   SysTick_Handler；�?? cmsis_os2.c 也实现了同名函数 �? 链接�? L6200E 重复定义�?
+   �? 1 后由 port.c 独家提供 SysTick_Handler，分工干�?�? */
 #define USE_CUSTOM_SYSTICK_HANDLER_IMPLEMENTATION 1
 /* USER CODE END Includes */
 
@@ -110,13 +110,6 @@ to exclude the API function. */
 #define INCLUDE_xTimerPendFunctionCall      1
 #define INCLUDE_xQueueGetMutexHolder        1
 #define INCLUDE_xSemaphoreGetMutexHolder    1
-
-/* ⚠️ 让 cmsis_os2.c 不要实现 SysTick_Handler。
-   原因：CubeMX 在 timebase 不是 SysTick 时会启用本文件下方的
-   `#define xPortSysTickHandler SysTick_Handler`，把 port.c 里的处理函数改名成
-   SysTick_Handler；而 cmsis_os2.c 也实现了同名函数 → 链接报 L6200E 重复定义。
-   置 1 后由 port.c 独家提供 SysTick_Handler，分工干净。 */
-#define USE_CUSTOM_SYSTICK_HANDLER_IMPLEMENTATION 1
 #define INCLUDE_uxTaskGetStackHighWaterMark 1
 #define INCLUDE_xTaskGetCurrentTaskHandle   1
 #define INCLUDE_eTaskGetState               1

@@ -24,14 +24,15 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-/* ↓ 原生 FreeRTOS API（vTaskDelayUntil / TickType_t / pdMS_TO_TICKS）。
-          ⚠️ 必须放在 USER CODE 区内：CubeMX 重新生成代码不会丢。 */
+/* ↓ 原生 FreeRTOS API（vTaskDelayUntil / TickType_t / pdMS_TO_TICKS）。
+          ⚠️ 必须放在 USER CODE 区内：CubeMX 重新生成代码不会丢。 */
 #include "FreeRTOS.h"
 #include "task.h"
 #include "button_front.h"
 #include "analog_input.h"
 #include "report.h"
-#include "latency_probe.h"   /* 可选的延迟测量模块；总开关在它的头文件里 */
+#include "latency_probe.h"   /* 可选的延迟测量模块；总开关在它的头文件里 */
+#include "nrf24_test.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,6 +53,8 @@
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
+SPI_HandleTypeDef hspi1;
+
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
@@ -68,6 +71,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_SPI1_Init(void);
 void StartDefaultTask(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -108,6 +112,7 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_ADC1_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
 		/* ADC 自校准：消除内部电容失配造成的偏移误差。
 	   必须在 HAL_ADC_Start / Start_DMA 之前调用一次。
@@ -124,6 +129,7 @@ int main(void)
 	   整套实现在 latency_probe.c 里，总开关在它的头文件；
 	   关掉开关时这一行会退化成空操作，一行机器码都不占。 */
 	LatencyProbe_Init();
+	nrf24_test_init();   /* 无线验证：配 SPI1 + CSN/CE */
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -163,14 +169,6 @@ int main(void)
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  /* ⚠️ 这里是"调度器启动失败"的兜底死循环 —— 正常永远走不到。
-     osKernelStart() 永不返回，控制权已交给调度器；
-     真正的 1ms 输入任务是下面的 StartDefaultTask()（用 vTaskDelayUntil 定周期）。
-
-     ⚠️ 历史遗留：这里原来放着裸机时代的主循环
-        （if (HAL_GetTick() - last >= 1) { scan_buttons(); ... }），
-     启用 FreeRTOS 后它成了死代码，却看起来像"固件还在轮询"，容易误判，故已删除。
-     ⚠️ 不要在这个 while(1) 里写任何有实际动作的代码 —— 它永远跑不到。 */
   while (1)
   {
     /* USER CODE END WHILE */
@@ -312,6 +310,44 @@ static void MX_ADC1_Init(void)
 }
 
 /**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -342,6 +378,19 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(CSN_GPIO_Port, CSN_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(CE_GPIO_Port, CE_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : CSN_Pin */
+  GPIO_InitStruct.Pin = CSN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(CSN_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : up_Pin down_Pin left_Pin right_Pin
                            A_Pin B_Pin X_Pin Y_Pin
                            SW1_Pin */
@@ -357,6 +406,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(SW2_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : CE_Pin */
+  GPIO_InitStruct.Pin = CE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(CE_GPIO_Port, &GPIO_InitStruct);
 
 }
 
@@ -377,9 +433,9 @@ void StartDefaultTask(void *argument)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 5 */
   /* 1ms 周期任务：原来 main() 主循环里的四件事搬到这里。
-     ⚠️ 必须用 vTaskDelayUntil（绝对周期），不能用 vTaskDelay / osDelay（相对延迟）——
-        后者会把本任务的执行时间累积成周期抖动，直接毁掉延迟指标。
-     四件事的顺序不能变：扫描 → 映射 → 打点 → 上报。 */
+        ⚠️ 必须用 vTaskDelayUntil（绝对周期），不能用 vTaskDelay / osDelay（相对延迟）——
+              后者会把本任务的执行时间累积成周期抖动，直接毁掉延迟指标。
+        四件事的顺序不能变：扫描 → 映射 → 打点 → 上报。 */
   TickType_t last = xTaskGetTickCount();
   for(;;)
   {
@@ -387,6 +443,7 @@ void StartDefaultTask(void *argument)
     analog_update();         /* read ADC, fill X/Y axes                 */
     LatencyProbe_OnTick();   /* 延迟测量：输入有变化就打点 + 计时 */
     send_report();           /* skip this tick if the previous transfer */
+				nrf24_test_poll();        /* 无线验证：100ms 读一次 nRF24 STATUS */
     vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
   }
   /* USER CODE END 5 */

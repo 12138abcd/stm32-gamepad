@@ -66,6 +66,14 @@ void Error_Handler(void);
 #define VRx2_GPIO_Port GPIOA
 #define VRy2_Pin GPIO_PIN_3
 #define VRy2_GPIO_Port GPIOA
+#define CSN_Pin GPIO_PIN_4
+#define CSN_GPIO_Port GPIOA
+#define NRF_SCK_Pin GPIO_PIN_5
+#define NRF_SCK_GPIO_Port GPIOA
+#define NRF_MISO_Pin GPIO_PIN_6
+#define NRF_MISO_GPIO_Port GPIOA
+#define NRF_MOSI_Pin GPIO_PIN_7
+#define NRF_MOSI_GPIO_Port GPIOA
 #define RT_Pin GPIO_PIN_0
 #define RT_GPIO_Port GPIOB
 #define LT_Pin GPIO_PIN_1
@@ -80,6 +88,8 @@ void Error_Handler(void);
 #define right_GPIO_Port GPIOB
 #define SW2_Pin GPIO_PIN_8
 #define SW2_GPIO_Port GPIOA
+#define CE_Pin GPIO_PIN_3
+#define CE_GPIO_Port GPIOB
 #define A_Pin GPIO_PIN_5
 #define A_GPIO_Port GPIOB
 #define B_Pin GPIO_PIN_6
