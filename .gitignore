@@ -39,6 +39,11 @@ PS.txt
 # 每台机器的窗口布局、打开的文件都不同，提交了只会互相覆盖
 MDK-ARM/*.uvguix.*
 
+# PS.uvoptx 同样是"个人调试状态"：断点、Watch 变量列表、窗口布局都在里面，
+# 每加一个 Watch 变量它就变一次（纯噪音）。2026-10-16 起不再跟踪，改为本地保留。
+# ⚠️ 代价：新机器首次打开工程要手动选一次调试器（Options for Target → Debug → ST-Link）。
+MDK-ARM/PS.uvoptx
+
 # ---------- 操作系统垃圾 ----------
 Thumbs.db
 Desktop.ini
@@ -58,6 +63,6 @@ Drivers/CMSIS/Lib/
 
 # 说明：
 #   PS.uvprojx  —— 必须提交（编译选项、器件、Flash 算法、ARM Compiler 版本都在里面）
-#   PS.uvoptx   —— 保留提交（调试器选型 ST-Link 在里面，删了新机器上要重选一次）
+#   PS.uvoptx   —— 【不提交】个人调试状态（断点 / Watch 列表 / 窗口布局），本地保留
 #   PS.ioc      —— 必须提交（这是 CubeMX 的工程定义本体）
 #   Core/ Drivers/ Middlewares/ USB_DEVICE/  —— 全是源码，必须提交
