@@ -571,6 +571,11 @@
               <FileType>1</FileType>
               <FilePath>..\Core\Src\nrf24_test.c</FilePath>
             </File>
+            <File>
+              <FileName>p2p.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\p2p.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

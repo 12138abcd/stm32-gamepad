@@ -24,15 +24,25 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-/* ↓ 原生 FreeRTOS API（vTaskDelayUntil / TickType_t / pdMS_TO_TICKS）。
-          ⚠️ 必须放在 USER CODE 区内：CubeMX 重新生成代码不会丢。 */
+/* ↓ 原生 FreeRTOS API（vTaskDelayUntil / TickType_t / pdMS_TO_TICKS）。
+
+          ⚠️ 必须放在 USER CODE 区内：CubeMX 重新生成代码不会丢。 */
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "button_front.h"
 #include "analog_input.h"
 #include "report.h"
-#include "latency_probe.h"   /* 可选的延迟测量模块；总开关在它的头文件里 */
+#include "latency_probe.h"   /* 可选的延迟测量模块；总开关在它的头文件里 */
+
 #include "nrf24_test.h"
+#include "p2p.h"             /* 无线第 4 步：两块板点对点测试 */
+
+/* ================== 无线测试开关（第 4 步）==================
+   1 = 只跑【点对点测试】（p2p）—— 跳过驱动自检，避免两者互相干扰
+   0 = 跑【驱动自检】（nrf24_test）—— 第 3 步的验收程序
+   ⚠️ 测第 4 步时置 1；测完改回 0 即恢复自检。 */
+#define P2P_TEST_MODE   1
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -129,7 +139,11 @@ int main(void)
 	   整套实现在 latency_probe.c 里，总开关在它的头文件；
 	   关掉开关时这一行会退化成空操作，一行机器码都不占。 */
 	LatencyProbe_Init();
-	nrf24_test_init();   /* 无线验证：配 SPI1 + CSN/CE */
+#if P2P_TEST_MODE
+	p2p_init();          /* 第 4 步：点对点测试（发送端建任务 / 接收端进接收模式） */
+#else
+	nrf24_test_init();   /* 第 3 步：驱动自检（配 SPI1 + CSN/CE） */
+#endif
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -443,7 +457,11 @@ void StartDefaultTask(void *argument)
     analog_update();         /* read ADC, fill X/Y axes                 */
     LatencyProbe_OnTick();   /* 延迟测量：输入有变化就打点 + 计时 */
     send_report();           /* skip this tick if the previous transfer */
-				nrf24_test_poll();        /* 无线验证：100ms 读一次 nRF24 STATUS */
+#if P2P_TEST_MODE
+    p2p_poll();              /* 第 4 步：接收端轮询收包（发送端空操作） */
+#else
+		nrf24_test_poll();        /* 第 3 步：100ms 读一次 nRF24 STATUS */
+#endif
     vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
   }
   /* USER CODE END 5 */
