@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F103xB</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;         ../Drivers/STM32F1xx_HAL_Driver/Inc;         ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;         ../Drivers/CMSIS/Device/ST/STM32F1xx/Include;         ../Drivers/CMSIS/Include;         ../USB_DEVICE/App;         ../USB_DEVICE/Target;         ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc;         ../Middlewares/ST/STM32_USB_Device_Library/Class/CustomHID/Inc;         ..\MDK-ARM;  ../Middlewares/Third_Party/FreeRTOS/Source/include;  ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;  ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3</IncludePath>
+              <IncludePath>../Core/Inc;           ../Drivers/STM32F1xx_HAL_Driver/Inc;           ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;           ../Drivers/CMSIS/Device/ST/STM32F1xx/Include;           ../Drivers/CMSIS/Include;           ../USB_DEVICE/App;           ../USB_DEVICE/Target;           ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc;           ../Middlewares/ST/STM32_USB_Device_Library/Class/CustomHID/Inc;           ..\MDK-ARM;    ../Middlewares/Third_Party/FreeRTOS/Source/include;    ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;    ../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -433,6 +433,21 @@
               <FileName>latency_probe.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Core\Inc\latency_probe.h</FilePath>
+            </File>
+            <File>
+              <FileName>nrf24.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\nrf24.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf24_test.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\nrf24_test.c</FilePath>
+            </File>
+            <File>
+              <FileName>p2p.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\p2p.c</FilePath>
             </File>
             <File>
               <FileName>main.c</FileName>
@@ -560,21 +575,6 @@
                   </Cads>
                 </FileArmAds>
               </FileOption>
-            </File>
-            <File>
-              <FileName>nrf24.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\nrf24.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf24_test.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\nrf24_test.c</FilePath>
-            </File>
-            <File>
-              <FileName>p2p.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\p2p.c</FilePath>
             </File>
           </Files>
         </Group>

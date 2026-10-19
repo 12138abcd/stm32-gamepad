@@ -49,12 +49,15 @@ static deb_t db_up, db_down, db_left, db_right;   /* 十字键 4 个触点 */
 static deb_t db_a,  db_b,    db_x,    db_y;       /* 4 个面键 */
 static deb_t db_l3;                               /* 左摇杆按下（SW1 → PB9） */
 static deb_t db_r3;                               /* 右摇杆按下（SW2 → PA8） */
+static deb_t db_lb, db_rb, db_view, db_menu;      /* LB / RB / View / Menu（PA15 / PB4 / PA9 / PA10）*/
 
 /* ---- 调试用计数器：加 volatile，否则会被优化掉，调试器里永远是 0 ---- */
 volatile uint32_t count_a   = 0;   /* A 键被按下的次数 */
 volatile uint32_t count_pov = 0;   /* 十字键方向变化的次数 */
 volatile uint32_t count_l3  = 0;   /* 左摇杆被按下的次数 */
 volatile uint32_t count_r3  = 0;   /* 右摇杆被按下的次数 */
+volatile uint32_t count_lb  = 0;   /* LB 被按下的次数 */
+volatile uint32_t count_rb  = 0;   /* RB 被按下的次数 */
 
 /* 非阻塞消抖：每拍调一次，不等待、不阻塞。
    只有"和当前判断矛盾的读数"连续出现够多拍，才改判。 */
@@ -145,4 +148,31 @@ void scan_buttons(void)
     if (r3_new && !r3_old) count_r3++;
     if (r3_new) gamepad_report[1] |=  BTN_R3;
     else        gamepad_report[1] &= ~BTN_R3;
+
+    /* ---------- 肩键 LB / RB → 报告 byte 0 的 bit4 / bit5 ----------
+       2026-10-19 新增：Xbox 布局的食指键，游戏里最常用（换弹 / 换挡 / 切页签）。
+       引脚：LB = PA15、RB = PB4 —— 两个都是 JTAG 脚，靠 __HAL_AFIO_REMAP_SWJ_NOJTAG() 释放。
+       接法与面键完全一样：按键另一端接 GND，内部上拉，按下读到 0。 */
+    uint8_t lb_old = db_lb.stable;
+    uint8_t lb_new = deb_update(&db_lb, BTN_DOWN(LB_GPIO_Port, LB_Pin));
+
+    if (lb_new && !lb_old) count_lb++;
+    if (lb_new) gamepad_report[0] |=  BTN_LB;
+    else        gamepad_report[0] &= ~BTN_LB;
+
+    uint8_t rb_old = db_rb.stable;
+    uint8_t rb_new = deb_update(&db_rb, BTN_DOWN(RB_GPIO_Port, RB_Pin));
+
+    if (rb_new && !rb_old) count_rb++;
+    if (rb_new) gamepad_report[0] |=  BTN_RB;
+    else        gamepad_report[0] &= ~BTN_RB;
+
+    /* ---------- View / Menu → 报告 byte 0 的 bit6 / bit7 ----------
+       Xbox 的 View(Back) / Menu(Start)。引脚：View = PA9、Menu = PA10。
+       ⚠️ 这两个脚原本是 USART1_TX/RX —— 现在串口不能用了（将来要串口得换脚）。 */
+    if (deb_update(&db_view, BTN_DOWN(VIEW_GPIO_Port, VIEW_Pin))) gamepad_report[0] |=  BTN_VIEW;
+    else                                                          gamepad_report[0] &= ~BTN_VIEW;
+
+    if (deb_update(&db_menu, BTN_DOWN(MENU_GPIO_Port, MENU_Pin))) gamepad_report[0] |=  BTN_MENU;
+    else                                                          gamepad_report[0] &= ~BTN_MENU;
 }

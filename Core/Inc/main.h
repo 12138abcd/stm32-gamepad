@@ -88,8 +88,16 @@ void Error_Handler(void);
 #define right_GPIO_Port GPIOB
 #define SW2_Pin GPIO_PIN_8
 #define SW2_GPIO_Port GPIOA
+#define VIEW_Pin GPIO_PIN_9
+#define VIEW_GPIO_Port GPIOA
+#define MENU_Pin GPIO_PIN_10
+#define MENU_GPIO_Port GPIOA
+#define LB_Pin GPIO_PIN_15
+#define LB_GPIO_Port GPIOA
 #define CE_Pin GPIO_PIN_3
 #define CE_GPIO_Port GPIOB
+#define RB_Pin GPIO_PIN_4
+#define RB_GPIO_Port GPIOB
 #define A_Pin GPIO_PIN_5
 #define A_GPIO_Port GPIOB
 #define B_Pin GPIO_PIN_6

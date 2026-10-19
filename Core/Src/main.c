@@ -406,20 +406,20 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(CSN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : up_Pin down_Pin left_Pin right_Pin
-                           A_Pin B_Pin X_Pin Y_Pin
+                           RB_Pin A_Pin B_Pin X_Pin Y_Pin
                            SW1_Pin */
   GPIO_InitStruct.Pin = up_Pin|down_Pin|left_Pin|right_Pin
-                          |A_Pin|B_Pin|X_Pin|Y_Pin
+                          |RB_Pin|A_Pin|B_Pin|X_Pin|Y_Pin
                           |SW1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : SW2_Pin */
-  GPIO_InitStruct.Pin = SW2_Pin;
+  /*Configure GPIO pins : SW2_Pin VIEW_Pin MENU_Pin LB_Pin */
+  GPIO_InitStruct.Pin = SW2_Pin|VIEW_Pin|MENU_Pin|LB_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(SW2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CE_Pin */
   GPIO_InitStruct.Pin = CE_Pin;
