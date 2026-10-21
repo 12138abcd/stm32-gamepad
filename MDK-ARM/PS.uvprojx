@@ -450,6 +450,16 @@
               <FilePath>..\Core\Src\p2p.c</FilePath>
             </File>
             <File>
+              <FileName>proto.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\proto.c</FilePath>
+            </File>
+            <File>
+              <FileName>proto_test.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\proto_test.c</FilePath>
+            </File>
+            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/main.c</FilePath>

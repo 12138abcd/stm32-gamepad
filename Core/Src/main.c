@@ -37,12 +37,15 @@
 
 #include "nrf24_test.h"
 #include "p2p.h"             /* 无线第 4 步：两块板点对点测试 */
+#include "proto_test.h"      /* 无线第 5 步：协议测试（帧格式 + 断线判据） */
 
-/* ================== 无线测试开关（第 4 步）==================
-   1 = 只跑【点对点测试】（p2p）—— 跳过驱动自检，避免两者互相干扰
-   0 = 跑【驱动自检】（nrf24_test）—— 第 3 步的验收程序
-   ⚠️ 测第 4 步时置 1；测完改回 0 即恢复自检。 */
-#define P2P_TEST_MODE   1
+/* ================== 无线测试开关（三选一）==================
+   PROTO_TEST_MODE = 1  → 第 5 步：协议测试（报告 + seq + 设备ID + 校验和）
+   P2P_TEST_MODE   = 1  → 第 4 步：点对点测试（裸 32 字节）
+   两个都是 0           → 第 3 步：驱动自检（nrf24_test）
+   ⚠️ 互斥！同时置 1 时以 PROTO 优先。 */
+#define PROTO_TEST_MODE 1
+#define P2P_TEST_MODE   0
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -139,7 +142,9 @@ int main(void)
 	   整套实现在 latency_probe.c 里，总开关在它的头文件；
 	   关掉开关时这一行会退化成空操作，一行机器码都不占。 */
 	LatencyProbe_Init();
-#if P2P_TEST_MODE
+#if PROTO_TEST_MODE
+	proto_test_init();   /* 第 5 步：协议测试（发送端建任务 / 接收端进接收模式） */
+#elif P2P_TEST_MODE
 	p2p_init();          /* 第 4 步：点对点测试（发送端建任务 / 接收端进接收模式） */
 #else
 	nrf24_test_init();   /* 第 3 步：驱动自检（配 SPI1 + CSN/CE） */
@@ -457,7 +462,9 @@ void StartDefaultTask(void *argument)
     analog_update();         /* read ADC, fill X/Y axes                 */
     LatencyProbe_OnTick();   /* 延迟测量：输入有变化就打点 + 计时 */
     send_report();           /* skip this tick if the previous transfer */
-#if P2P_TEST_MODE
+#if PROTO_TEST_MODE
+    proto_test_poll();       /* 第 5 步：接收端轮询收包（发送端空操作） */
+#elif P2P_TEST_MODE
     p2p_poll();              /* 第 4 步：接收端轮询收包（发送端空操作） */
 #else
 		nrf24_test_poll();        /* 第 3 步：100ms 读一次 nRF24 STATUS */
