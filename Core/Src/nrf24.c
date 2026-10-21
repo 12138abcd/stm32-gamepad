@@ -254,6 +254,14 @@ void nrf24_init(void)
     nrf24_ce_low();          /* 配置期间 CE 必须低（高电平时模块在做收发，SPI 行为会变）*/
     nrf24_dwt_enable();
 
+    /* ---- 0) 软复位：先 Power Down，再重新上电 ----
+       应对"烧写后第一次连不上"：ST-Link 只复位 MCU，而 nRF24 一直有电，
+       PWR_UP 可能已经是 1 —— 这时直接写 STANDBY 不会触发上电序列，
+       Tpd2stby 那 1.5ms 就白等了。
+       先写 PWR_UP=0 强制回到 Power Down，再写 STANDBY，保证每次调用都走完整上电时序。 */
+    nrf24_write_reg(NRF24_REG_CONFIG, 0x08u);   /* PWR_UP=0，EN_CRC=1，CRCO=1 → Power Down */
+    HAL_Delay(2u);
+
     /* ---- 1) 上电：PWR_UP=1 + EN_CRC=1 + CRCO=1（2 字节 CRC），PRIM_RX=0 ---- */
     nrf24_write_reg(NRF24_REG_CONFIG, NRF24_CONFIG_STANDBY);
     HAL_Delay(2u);           /* Tpd2stby = 1.5ms（上电 → 待机），精度不敏感，用 HAL 时基即可 */

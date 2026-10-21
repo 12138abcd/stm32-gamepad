@@ -25,7 +25,6 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* ↓ 原生 FreeRTOS API（vTaskDelayUntil / TickType_t / pdMS_TO_TICKS）。
-
           ⚠️ 必须放在 USER CODE 区内：CubeMX 重新生成代码不会丢。 */
 
 #include "FreeRTOS.h"
@@ -39,12 +38,17 @@
 #include "p2p.h"             /* 无线第 4 步：两块板点对点测试 */
 #include "proto_test.h"      /* 无线第 5 步：协议测试（帧格式 + 断线判据） */
 
-/* ================== 无线测试开关（三选一）==================
-   PROTO_TEST_MODE = 1  → 第 5 步：协议测试（报告 + seq + 设备ID + 校验和）
-   P2P_TEST_MODE   = 1  → 第 4 步：点对点测试（裸 32 字节）
-   两个都是 0           → 第 3 步：驱动自检（nrf24_test）
-   ⚠️ 互斥！同时置 1 时以 PROTO 优先。 */
-#define PROTO_TEST_MODE 1
+#include "app.h"             /* 无线第 6 步：应用层总入口
+                                ⚠️ 角色开关 DEVICE_ROLE 在 app.h 里（不在这里定义！） */
+
+/* ================== 运行模式（四选一，从上到下优先）==================
+   APP_MODE = 1        → 第 6 步：应用层（手柄发 / dongle 收 → USB）
+   PROTO_TEST_MODE = 1 → 第 5 步：协议测试（proto_test.c）
+   P2P_TEST_MODE = 1   → 第 4 步：点对点测试（p2p.c）
+   三个都是 0          → 第 3 步：驱动自检（nrf24_test.c）
+   ⚠️ 互斥！同时置 1 时按上面顺序取第一个。 */
+#define APP_MODE        1
+#define PROTO_TEST_MODE 0
 #define P2P_TEST_MODE   0
 /* USER CODE END Includes */
 
@@ -142,10 +146,12 @@ int main(void)
 	   整套实现在 latency_probe.c 里，总开关在它的头文件；
 	   关掉开关时这一行会退化成空操作，一行机器码都不占。 */
 	LatencyProbe_Init();
-#if PROTO_TEST_MODE
-	proto_test_init();   /* 第 5 步：协议测试（发送端建任务 / 接收端进接收模式） */
+#if APP_MODE
+	app_init();          /* 第 6 步：应用层（手柄建无线任务 / dongle 进接收模式） */
+#elif PROTO_TEST_MODE
+	proto_test_init();   /* 第 5 步：协议测试 */
 #elif P2P_TEST_MODE
-	p2p_init();          /* 第 4 步：点对点测试（发送端建任务 / 接收端进接收模式） */
+	p2p_init();          /* 第 4 步：点对点测试 */
 #else
 	nrf24_test_init();   /* 第 3 步：驱动自检（配 SPI1 + CSN/CE） */
 #endif
@@ -458,16 +464,24 @@ void StartDefaultTask(void *argument)
   TickType_t last = xTaskGetTickCount();
   for(;;)
   {
+#if APP_MODE
+    /* 第 6 步：应用层自己按角色做 —— 手柄 = 扫描+映射+USB+塞队列；dongle = 收包+USB
+       ⚠️ 这里绝对不能再调 scan_buttons / analog_update / send_report！
+          否则 dongle 端会用【悬空的按键和 ADC】覆盖无线收到的数据 —— 2026-10-21 踩坑：
+          joy.cpl 轴乱跳、gamepad_report[0] 永远 0，就是这么来的。 */
+    app_tick();
+#else
     scan_buttons();          /* read GPIOs and debounce                 */
     analog_update();         /* read ADC, fill X/Y axes                 */
     LatencyProbe_OnTick();   /* 延迟测量：输入有变化就打点 + 计时 */
     send_report();           /* skip this tick if the previous transfer */
-#if PROTO_TEST_MODE
+  #if PROTO_TEST_MODE
     proto_test_poll();       /* 第 5 步：接收端轮询收包（发送端空操作） */
-#elif P2P_TEST_MODE
+  #elif P2P_TEST_MODE
     p2p_poll();              /* 第 4 步：接收端轮询收包（发送端空操作） */
-#else
+  #else
 		nrf24_test_poll();        /* 第 3 步：100ms 读一次 nRF24 STATUS */
+  #endif
 #endif
     vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
   }
