@@ -101,6 +101,24 @@
 extern volatile uint32_t nrf24_err;          /* SPI 传输出错的次数，正常恒 0 */
 extern volatile uint8_t  nrf24_last_status;  /* 最近一次 SPI 事务里模块回送的 STATUS */
 
+/* ---- 初始化自诊断（2026-10-23 加，治"下载后第一次连不上无线"）----
+   判读：
+     nrf24_boot_retry  = 0  → 一次就成功（正常）
+     nrf24_boot_retry  > 0  → 重试过，但最终起来了
+     nrf24_boot_retry  = NRF24_BOOT_RETRY_MAX → 模块一直没应答，没配置上
+     nrf24_boot_config = 0x0E → 正常；0x00 / 0xFF → SPI 根本没通 */
+extern volatile uint8_t  nrf24_boot_retry;
+extern volatile uint8_t  nrf24_boot_config;
+
+/* 软复位最多重试几次（每轮 = 写 0x08 + 2ms + 写 0x0E + 2ms + 读回校验） */
+#define NRF24_BOOT_RETRY_MAX   3u
+
+/* 初始化前先等多久（ms）让模块完成上电复位。
+   为什么需要：下载代码时 ST-Link 的 Flash 编程电流会把 3.3V 拉一下，
+   nRF24 跟着掉电；重新上电后它要 ~10ms 才响应 SPI，这段时间写的寄存器全被忽略。
+   现取 20ms（留一倍裕量）。 */
+#define NRF24_BOOT_POR_MS      20u
+
 /* CE 脉冲宽度（µs）的默认值：200。
    数据手册上"CE ≥10µs"是【PLL 已锁定】的前提；而模块从 standby 真正进入 TX
    模式还要 Tstby2a = 130µs —— 所以默认取 200，留出裕量。 */

@@ -15,6 +15,10 @@ extern SPI_HandleTypeDef hspi1;   /* 定义在 main.c（CubeMX 生成），不�
 volatile uint32_t nrf24_err         = 0u;   /* SPI 传输出错次数，正常恒 0 */
 volatile uint8_t  nrf24_last_status = 0u;   /* 最近一次事务里模块回送的 STATUS */
 
+/* 初始化自诊断（2026-10-23）：下载后第一次启动无线不通时，先看这两个 */
+volatile uint8_t  nrf24_boot_retry  = 0u;   /* 软复位重试次数；0 = 一次成功 */
+volatile uint8_t  nrf24_boot_config = 0u;   /* 初始化后读回的 CONFIG；正常 = 0x0E */
+
 /* 本项目的 Pipe0 收发地址：手柄与 dongle 用同一份，代码整份复用 */
 const uint8_t nrf24_addr_p0[NRF24_ADDR_WIDTH] = { 'P', 'S', 'P', 'A', 'D' };
 
@@ -251,20 +255,37 @@ uint8_t nrf24_send(const uint8_t *buf, uint8_t len, uint32_t timeout_ms)
 
 void nrf24_init(void)
 {
+    uint8_t rd    = 0u;
+    uint8_t retry;
+
     nrf24_ce_low();          /* 配置期间 CE 必须低（高电平时模块在做收发，SPI 行为会变）*/
     nrf24_dwt_enable();
 
-    /* ---- 0) 软复位：先 Power Down，再重新上电 ----
-       应对"烧写后第一次连不上"：ST-Link 只复位 MCU，而 nRF24 一直有电，
-       PWR_UP 可能已经是 1 —— 这时直接写 STANDBY 不会触发上电序列，
-       Tpd2stby 那 1.5ms 就白等了。
-       先写 PWR_UP=0 强制回到 Power Down，再写 STANDBY，保证每次调用都走完整上电时序。 */
-    nrf24_write_reg(NRF24_REG_CONFIG, 0x08u);   /* PWR_UP=0，EN_CRC=1，CRCO=1 → Power Down */
-    HAL_Delay(2u);
+    /* ---- 0) 先等模块上电复位完成（2026-10-23 加）----
+       ST-Link 下载时代 Flash 编程电流会把 3.3V 拉一下 → nRF24 跟着掉电；
+       重新上电后它要 ~10ms 才响应 SPI，这段时间写的寄存器【全部被忽略】。
+       症状：下载完程序在跑、wtx_sent 在涨，但 wtx_maxrt 一起涨（模块根本没配置上）；
+             过一会儿按一下 MCU 复位键就好 —— 那时模块早已稳定。
+       ⚠️ 这一步不能靠下面的软复位替代：软复位本身就要用 SPI 去写寄存器。 */
+    HAL_Delay(NRF24_BOOT_POR_MS);
 
-    /* ---- 1) 上电：PWR_UP=1 + EN_CRC=1 + CRCO=1（2 字节 CRC），PRIM_RX=0 ---- */
-    nrf24_write_reg(NRF24_REG_CONFIG, NRF24_CONFIG_STANDBY);
-    HAL_Delay(2u);           /* Tpd2stby = 1.5ms（上电 → 待机），精度不敏感，用 HAL 时基即可 */
+    /* ---- 1) 软复位：先 Power Down 再上电，带【读回校验 + 重试】----
+       读回校验的作用：把"模块没应答"和"配置写进去了"分开。
+       只写不读的话，模块还在 POR 里时写 0x08 和写 0x0E 都是白写，表面看一切正常。 */
+    for (retry = 0u; retry < NRF24_BOOT_RETRY_MAX; retry++)
+    {
+        nrf24_write_reg(NRF24_REG_CONFIG, 0x08u);   /* PWR_UP=0，EN_CRC=1，CRCO=1 → Power Down */
+        HAL_Delay(2u);
+
+        /* 上电：PWR_UP=1 + EN_CRC=1 + CRCO=1（2 字节 CRC），PRIM_RX=0 */
+        nrf24_write_reg(NRF24_REG_CONFIG, NRF24_CONFIG_STANDBY);
+        HAL_Delay(2u);           /* Tpd2stby = 1.5ms（上电 → 待机），精度不敏感，用 HAL 时基即可 */
+
+        rd = nrf24_read_reg(NRF24_REG_CONFIG);
+        if ((rd & 0x0Eu) == 0x0Eu) { break; }   /* PWR_UP / EN_CRC / CRCO 都置上了 → 真的起来了 */
+    }
+    nrf24_boot_retry  = retry;   /* 0 = 一次成功；= NRF24_BOOT_RETRY_MAX → 一直没应答 */
+    nrf24_boot_config = rd;      /* 正常 0x0E；0x00 / 0xFF → SPI 没通 */
 
     /* ---- 2) 基本参数 ---- */
     nrf24_write_reg(NRF24_REG_SETUP_AW,    0x03u);                   /* 5 字节地址 */
