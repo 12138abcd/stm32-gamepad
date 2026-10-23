@@ -1,14 +1,16 @@
 /**
   ******************************************************************************
   * @file    wireless_rx.c
-  * @brief   dongle 端无线接收实现（第 6 步）
+  * @brief   dongle 端无线接收实现（第 6 步，第 7 步加帧类型分流 + 断线空闲报告）
   *
   * 数据流：
-  *   nrf24 收包 ──► proto_unpack（校验）──► gamepad_report ──► send_report()（USB）
+  *   nrf24 收包 ──► proto_verify（校验）──┬─ 报告帧 ──► gamepad_report ──► send_report()
+  *                                        └─ 心跳帧 ──► 只更新链路，不写报告、不碰 USB
   *
-  * 两个细节：
+  * 三个细节：
   *   ① 断线检测每 1ms 都查（不是只有收到包才查）—— 否则永远检测不到"断了"
-  *   ② 收到合法包立刻恢复链路（proto_link_on_ok）
+  *   ② 收到合法包（报告帧或心跳帧）立刻恢复链路（proto_link_on_ok）
+  *   ③ 断线时补发【空闲报告】，防止"卡键"（PC 上那个设备会自己回中、松手）
   ******************************************************************************
   */
 
@@ -20,6 +22,15 @@
 #include "cmsis_os.h"
 #include <string.h>
 
+/* 断线期间每 100ms 补发一次空闲报告。
+   为什么不是只发一次：那一次可能刚好撞上端点忙（USBD_BUSY）被丢掉；
+   周期重发是幂等的（每次都发同一个"全松开"状态），不会产生副作用。 */
+#define RX_IDLE_PERIOD_MS   100u
+
+/* 空闲报告 = 什么都没碰：按键全 0、Hat 中立(8)、四轴居中(0x80)、扳机松开(0) */
+static const uint8_t idle_report[PROTO_REPORT_LEN] =
+    { 0x00, 0x00, 0x08, 0x80, 0x80, 0x80, 0x80, 0x00, 0x00 };
+
 volatile uint32_t wrx_ok        = 0u;
 volatile uint32_t wrx_bad_type  = 0u;
 volatile uint32_t wrx_bad_sum   = 0u;
@@ -28,9 +39,13 @@ volatile uint32_t wrx_last_seq  = 0u;
 volatile uint32_t wrx_link_lost = 0u;
 volatile uint8_t  wrx_link_up   = 0u;
 volatile uint32_t wrx_usb_sent  = 0u;
+volatile uint32_t wrx_heartbeat = 0u;
+volatile uint32_t wrx_idle_sent = 0u;
 
-static uint16_t rx_expect  = 0u;   /* 期望的下一个 seq */
-static uint8_t  rx_started = 0u;   /* 是否已收到第一帧 */
+static uint16_t rx_expect   = 0u;   /* 期望的下一个 seq */
+static uint8_t  rx_started  = 0u;   /* 是否已收到第一帧 */
+static uint8_t  idle_first  = 1u;   /* 1 = 本次断线还没发过（进来先立刻发一次） */
+static uint32_t idle_last_ms = 0u;
 
 void wireless_rx_init(void)
 {
@@ -60,37 +75,78 @@ void wireless_rx_poll(void)
         wrx_link_lost++;
     }
 
-    /* ---- ② 没收到包就返回 ---- */
+    /* ---- ② 收包（不管链路通不通都要收：第一包回来才能恢复）---- */
     st = nrf24_get_status();
-    if ((st & NRF24_STATUS_RX_DR) == 0u) { return; }
-
-    nrf24_read_rx_payload(frame, PROTO_FRAME_LEN);
-    nrf24_clear_irq(NRF24_STATUS_RX_DR);
-
-    /* ---- ③ 解帧 + 校验（分类型统计）---- */
-    if (proto_unpack(frame, report, &seq, &dev_id) == 0u)
+    if ((st & NRF24_STATUS_RX_DR) != 0u)
     {
-        if (frame[11] != PROTO_TYPE_REPORT) { wrx_bad_type++; }
-        else                                { wrx_bad_sum++;  }
-        return;
+        nrf24_read_rx_payload(frame, PROTO_FRAME_LEN);
+        nrf24_clear_irq(NRF24_STATUS_RX_DR);
+
+        /* ---- ③ 校验（类型 + 校验和），按失败原因分类统计 ---- */
+        if (proto_verify(frame) == 0u)
+        {
+            if ((frame[11] != PROTO_TYPE_REPORT) && (frame[11] != PROTO_TYPE_HEARTBEAT))
+            {
+                wrx_bad_type++;
+            }
+            else
+            {
+                wrx_bad_sum++;
+            }
+        }
+        else if (frame[11] == PROTO_TYPE_HEARTBEAT)
+        {
+            /* ---- ④ 心跳帧：只更新链路与序号，【不】写报告、【不】发 USB ----
+               这一步就是第 7 步"有线模式下 PC 上只有一个设备在动"的关键。 */
+            seq = (uint16_t)frame[9] | ((uint16_t)frame[10] << 8);
+            if (rx_started && (seq != rx_expect))
+            {
+                wrx_bad_seq++;      /* 心跳也占 seq，所以这里同样维护期望值 */
+            }
+            rx_expect  = (uint16_t)(seq + 1u);
+            rx_started = 1u;
+
+            wrx_heartbeat++;
+            wrx_link_up = proto_link_on_ok(now);
+        }
+        else if (proto_unpack(frame, report, &seq, &dev_id) != 0u)
+        {
+            /* ---- ⑤ 报告帧：正常路径 ---- */
+            if (rx_started && (seq != rx_expect))
+            {
+                wrx_bad_seq++;
+            }
+            rx_expect  = (uint16_t)(seq + 1u);
+            rx_started = 1u;
+
+            memcpy(gamepad_report, report, PROTO_REPORT_LEN);
+            send_report();
+            wrx_usb_sent++;
+
+            wrx_ok++;
+            wrx_last_seq = seq;
+            wrx_link_up  = proto_link_on_ok(now);
+        }
+        else
+        {
+            /* proto_verify 过了、unpack 却失败 —— 理论上走不到（unpack 只多点一次类型判断） */
+            wrx_bad_sum++;
+        }
     }
 
-    /* ---- ④ 序号连续性（第一帧不判）---- */
-    if (rx_started && (seq != rx_expect))
+    /* ---- ⑥ 断线 → 发空闲报告，防卡键 ----
+       场景：断线那一刻玩家正推着摇杆，PC 上就会一直卡在那个方向。
+       这里把 gamepad_report 覆盖成"全松开"再发出去，等于替玩家松手。 */
+    if (wrx_link_up)
     {
-        wrx_bad_seq++;
+        idle_first = 1u;        /* 恢复后重置：下次断线立刻发一次 */
     }
-    rx_expect  = (uint16_t)(seq + 1u);
-    rx_started = 1u;
-
-    /* ---- ⑤ 关键：把收到的报告写进全局 gamepad_report ---- */
-    memcpy(gamepad_report, report, PROTO_REPORT_LEN);
-
-    /* ---- ⑥ 转给 USB（report.c 的 send_report）---- */
-    send_report();
-    wrx_usb_sent++;
-
-    wrx_ok++;
-    wrx_last_seq = seq;
-    wrx_link_up  = proto_link_on_ok(now);
+    else if (idle_first || ((uint32_t)(now - idle_last_ms) >= RX_IDLE_PERIOD_MS))
+    {
+        idle_first   = 0u;
+        idle_last_ms = now;
+        memcpy(gamepad_report, idle_report, PROTO_REPORT_LEN);
+        send_report();
+        wrx_idle_sent++;
+    }
 }

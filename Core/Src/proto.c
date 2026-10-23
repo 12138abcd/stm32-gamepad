@@ -33,6 +33,12 @@ uint16_t proto_checksum(const uint8_t *buf, uint8_t len)
 void proto_pack(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
                 uint8_t dev_id, uint8_t out[PROTO_FRAME_LEN])
 {
+    proto_pack_ex(report, seq, dev_id, PROTO_TYPE_REPORT, out);
+}
+
+void proto_pack_ex(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
+                   uint8_t dev_id, uint8_t type, uint8_t out[PROTO_FRAME_LEN])
+{
     uint16_t sum;
 
     memset(out, 0, PROTO_FRAME_LEN);
@@ -45,7 +51,7 @@ void proto_pack(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
     out[10] = (uint8_t)(seq >> 8);
 
     /* 11：帧类型 */
-    out[11] = PROTO_TYPE_REPORT;
+    out[11] = type;
 
     /* 12：设备 ID */
     out[12] = dev_id;
@@ -58,24 +64,43 @@ void proto_pack(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
     /* 15-31：已经是 0（memset） */
 }
 
+/* ============================ 校验 ============================ */
+
+uint8_t proto_verify(const uint8_t in[PROTO_FRAME_LEN])
+{
+    uint16_t sum;
+
+    /* 类型必须是已知类型（报告帧 / 心跳帧），否则不是我们的包 */
+    if ((in[11] != PROTO_TYPE_REPORT) && (in[11] != PROTO_TYPE_HEARTBEAT))
+    {
+        return 0u;
+    }
+
+    sum = proto_checksum(in, PROTO_SUM_LEN);
+    if ((in[13] != (uint8_t)(sum & 0xFFu)) ||
+        (in[14] != (uint8_t)(sum >> 8)))
+    {
+        return 0u;
+    }
+
+    return 1u;
+}
+
 /* ============================ 解帧 ============================ */
 
 uint8_t proto_unpack(const uint8_t in[PROTO_FRAME_LEN],
                      uint8_t report[PROTO_REPORT_LEN],
                      uint16_t *seq, uint8_t *dev_id)
 {
-    uint16_t sum;
-
-    /* 校验 1：帧类型 */
+    /* 本函数只认【报告帧】。心跳帧是第 7 步加的保活帧，
+       由调用者先用 proto_verify() 校验、再看 in[11] 分流处理。 */
     if (in[11] != PROTO_TYPE_REPORT)
     {
         return 0u;
     }
 
-    /* 校验 2：校验和 */
-    sum = proto_checksum(in, PROTO_SUM_LEN);
-    if ((in[13] != (uint8_t)(sum & 0xFFu)) ||
-        (in[14] != (uint8_t)(sum >> 8)))
+    /* 校验和 —— 与 proto_verify() 共用同一份逻辑，避免两处判定漂移 */
+    if (proto_verify(in) == 0u)
     {
         return 0u;
     }

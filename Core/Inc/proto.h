@@ -7,7 +7,7 @@
   *   偏移   长度   内容
   *   0-8    9     HID 报告（原样，dongle 收到后直接 memcpy 发 USB）
   *   9-10   2     序号 seq（uint16，每包 +1）
-  *   11     1     帧类型（0x01 = 报告帧）
+  *   11     1     帧类型（0x01 = 报告帧 / 0x02 = 心跳帧；心跳是第 7 步加的）
   *   12     1     设备 ID（0 = 未配对；1~255 = 手柄 ID，为第 6 步配对预留）
   *   13-14  2     校验和（对 0~12 逐字节累加，小端）
   *   15-31  17    补 0
@@ -30,7 +30,9 @@
 #define PROTO_FRAME_LEN       32u    /* 帧长，必须 = RX_PW_P0 */
 #define PROTO_REPORT_LEN      9u     /* HID 报告长度 */
 
-#define PROTO_TYPE_REPORT     0x01u  /* 帧类型：报告帧 */
+#define PROTO_TYPE_REPORT     0x01u  /* 帧类型：报告帧（dongle 写 gamepad_report + 发 USB） */
+#define PROTO_TYPE_HEARTBEAT  0x02u  /* 帧类型：心跳（第 7 步；有线模式下每 20ms 一帧保活，
+                                         dongle 只更新链路状态，【不】写报告、【不】发 USB） */
 #define PROTO_DEV_ID_UNPAIRED 0x00u  /* 设备 ID：未配对 */
 
 /* 校验和覆盖范围：前 13 字节（0~12） */
@@ -43,7 +45,7 @@
 /* ============================ 组帧 / 解帧 ============================ */
 
 /**
- * 手柄侧：把 9 字节 HID 报告打成 32 字节协议帧。
+ * 手柄侧：把 9 字节 HID 报告打成 32 字节协议帧（帧类型固定为 REPORT）。
  * @param report  9 字节报告
  * @param seq     序号
  * @param dev_id  设备 ID（0 = 未配对）
@@ -53,7 +55,21 @@ void proto_pack(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
                 uint8_t dev_id, uint8_t out[PROTO_FRAME_LEN]);
 
 /**
- * dongle 侧：解帧 + 校验。
+ * 同 proto_pack，但可以指定帧类型（第 7 步：报告帧 / 心跳帧）。
+ * proto_pack() 就是 type = PROTO_TYPE_REPORT 的特例。
+ */
+void proto_pack_ex(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
+                   uint8_t dev_id, uint8_t type, uint8_t out[PROTO_FRAME_LEN]);
+
+/**
+ * 只校验、不拆字段：帧类型是已知类型 + 校验和正确 → 返回 1。
+ * 给第 7 步的 dongle 用：先 verify，再按 frame[11] 分流（报告帧 / 心跳帧）。
+ * 这样 proto_unpack() 可以保持"只认真报告帧"的原语义，老测试代码不用动。
+ */
+uint8_t proto_verify(const uint8_t in[PROTO_FRAME_LEN]);
+
+/**
+ * dongle 侧：解帧 + 校验（只接受 REPORT 帧，保持第 5 步原语义）。
  * @return 1 = 合法；0 = 非法（类型不对或校验和错）
  */
 uint8_t proto_unpack(const uint8_t in[PROTO_FRAME_LEN],
