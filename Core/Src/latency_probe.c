@@ -35,6 +35,10 @@
 #include "nrf24.h"             /* NRF24_TX_OK / NRF24_TX_MAXRT（第 8 步）*/
 #include <string.h>            /* memcmp / memcpy */
 
+/* 第 8 步：t1 的出口（手柄侧）。放总开关【外面】—— 关掉探针时它恒 0，
+   wireless_tx.c 照样能把它传给 proto_pack_ex，不用加条件编译。 */
+volatile uint16_t wprobe_t1_out = 0u;
+
 #if LATENCY_PROBE_ENABLE
 
 /* ============================ 参数 ============================ */
@@ -119,6 +123,13 @@ volatile uint32_t wprobe_p99       = 0;
 volatile uint32_t wprobe_timeout   = 0;            /* 武装超时次数，应该 0 */
 volatile uint32_t wprobe_maxrt_cnt = 0;            /* 武装后遇到 MAX_RT 的帧数（链路差的证据）*/
 
+/* ---- 对账用的三个计数器（2026-10-26 加）----
+   背景：实测"按 112 次只统计到 100 次"，需要知道少掉的那 12 次去哪了。
+   对账公式：wprobe_press_seen ≈ wprobe_count + wprobe_skip_press + wprobe_locked + wprobe_timeout */
+volatile uint32_t wprobe_press_seen = 0;   /* 固件看到"按下方向"的次数（应 ≈ 你实际按的次数）*/
+volatile uint32_t wprobe_locked     = 0;   /* 想武装、但被 20ms 封锁期挡掉的按下次数 */
+volatile uint32_t wprobe_skip_press = 0;   /* 武装成功、但最终判成"非按下"而丢掉的次数 */
+
 /* ⚠️ 下面 4 个是【跨任务】的：1ms 任务里写（WirelessProbe_OnTick），
    无线任务里读（LatencyProbe_OnWirelessTx）—— 必须 volatile，
    否则编译器可能把它缓存进寄存器，两个任务看到的值不一致。
@@ -151,6 +162,18 @@ volatile uint32_t wprobe_maxrt_cnt = 0;   /* dongle 侧不用，占位保持变�
    所以同样要 volatile。 */
 static volatile uint32_t wprobe_t0      = 0;   /* 起点：发现 RX_DR 的时刻 */
 static volatile uint8_t  wprobe_pending = 0;   /* 1 = 有一次测量在等 USB 完成 */
+
+/* ---- 第 8 步：严格配对的缓存 ----
+   帧里带的是【上一帧】的 t1（帧在发送前就组好了，而 t1 要等发完才知道），
+   所以收到帧 N 时拿到的是 t1(N-1)，要用【上一帧缓存的 t2(N-1)】去配对，
+   得到 t1(N-1) + t2(N-1) = 同一个按键事件的完整端到端。 */
+static volatile uint16_t wprobe_seq        = 0;   /* 当前帧的 seq */
+static volatile uint16_t wprobe_pend_t2    = 0;   /* 上一帧的 t2（µs）*/
+static volatile uint16_t wprobe_pend_seq   = 0;   /* 上一帧的 seq */
+static volatile uint8_t  wprobe_pend_valid = 0;   /* 上一帧的 t2 是否有效 */
+static volatile uint32_t wprobe_t0_raw     = 0;   /* 读 FIFO 之前记下的时刻（先存着，
+                                                     确认是报告帧才启用 —— 心跳帧不发 USB，
+                                                     如果直接开测量，pending 会一直挂着）*/
 
 #endif
 
@@ -242,7 +265,7 @@ static void WirelessProbe_OnTick(void)
     if (HAL_GPIO_ReadPin(left_GPIO_Port,  left_Pin)  == GPIO_PIN_RESET) { raw |= 0x40u; }
     if (HAL_GPIO_ReadPin(right_GPIO_Port, right_Pin) == GPIO_PIN_RESET) { raw |= 0x80u; }
 
-    /* ① 原始电平变化 → 武装（同一个道理：起点必须是"固件第一次看到变化"）*/
+    /* ① 原始电平变化 → 武装（起点必须最早：消抖本身也是延迟的一部分）*/
     if (raw != wprobe_raw_prev)
     {
         wprobe_raw_prev = raw;
@@ -255,12 +278,29 @@ static void WirelessProbe_OnTick(void)
         }
     }
 
-    /* ② 报告变化 → 判按下/松开 + 标记"内容已反映这次变化" */
+    /* ② 报告变化 → 判按下/松开 + 对账计数 + 标记"内容已反映这次变化"
+       ⚠️ 2026-10-26 修正：对账计数【全部基于消抖后的报告】，不再用原始电平。
+          原因：原始电平有机械抖动，一次按下会被数成 2~3 次
+          （实测：按 100 次，原始电平的"按下方向跳变"有 148 次）。 */
     if (memcmp(wprobe_prev, gamepad_report, 9) != 0)
     {
         uint8_t old_bits = popcount8(wprobe_prev[0])    + popcount8(wprobe_prev[1]);
         uint8_t new_bits = popcount8(gamepad_report[0]) + popcount8(gamepad_report[1]);
+
         wprobe_is_press = (new_bits > old_bits) ? 1u : ((new_bits < old_bits) ? 0u : 2u);
+
+        if (new_bits > old_bits)          /* 按下沿 */
+        {
+            wprobe_press_seen++;          /* 账本：消抖后确认了一次按下（应 = 你按的次数）*/
+
+            if (wprobe_armed == 0u)
+            {
+                /* 这次按下发生时没有武装 → 被 20ms 封锁期挡住，或者上一次还没测完。
+                   两种情况都属于"这次按下没被测量"，所以都记在 locked 里。 */
+                wprobe_locked++;
+            }
+        }
+
         memcpy(wprobe_prev, gamepad_report, 9);
 
         if (wprobe_armed) { wprobe_changed = 1u; }
@@ -345,6 +385,9 @@ void LatencyProbe_OnTick(void)
             wprobe_timeout   = 0u;
             wprobe_maxrt_cnt = 0u;
 #if DEVICE_ROLE == DEVICE_ROLE_HANDHELD
+            wprobe_press_seen = 0u;
+            wprobe_locked     = 0u;
+            wprobe_skip_press = 0u;
             wprobe_armed     = 0u;
             wprobe_changed   = 0u;
             wprobe_lockout   = DWT->CYCCNT;
@@ -457,19 +500,15 @@ void LatencyProbe_DataInHook(uint8_t epnum)
            【dongle 收到包 → PC 能取到】。 */
         if (wprobe_pending)
         {
-            uint32_t cycles_w = DWT->CYCCNT - wprobe_t0;
-            uint32_t us_w     = cycles_w / (SystemCoreClock / 1000000u);
+            uint32_t us_w = (DWT->CYCCNT - wprobe_t0) / (SystemCoreClock / 1000000u);
 
-            wprobe_pending = 0u;
-            wprobe_count++;
-
-            if (us_w < (PROBE_BUCKETS * PROBE_BUCKET_US)) { wprobe_hist[us_w / PROBE_BUCKET_US]++; }
-            else                                          { wprobe_hist_over++; }
-
-            if (us_w > wprobe_max_us) { wprobe_max_us = us_w; }
-            if (us_w < wprobe_min_us) { wprobe_min_us = us_w; }
-
-            WirelessProbe_UpdateStats();
+            /* 第 8 步：这里【只缓存 t2】，不立即统计。
+               因为要等【下一帧】带来的 t1 才能和这一帧配对（见 OnRxFrame），
+               单看这一段没有意义 —— 它只是"收包 → USB"的半段。 */
+            wprobe_pend_t2    = (uint16_t)((us_w > 0xFFFFu) ? 0xFFFFu : us_w);
+            wprobe_pend_seq   = wprobe_seq;
+            wprobe_pend_valid = 1u;
+            wprobe_pending    = 0u;
         }
 #endif
 
@@ -531,6 +570,11 @@ void LatencyProbe_OnWirelessTx(uint8_t ret)
         /* 只统计【按下】—— 和有线同一个理由：松手晚几毫秒没人感知得到 */
         if (wprobe_is_press == 1u)
         {
+            /* 第 8 步：把这个 t1 存下来，下一帧组帧时带给 dongle（严格配对用）。
+               帧必须先组好才能发，所以 t1 只能"晚一帧"带出去。
+               超过 65535µs 就截顶（正常只有一两毫秒，不会发生）。 */
+            wprobe_t1_out = (uint16_t)((us > 0xFFFFu) ? 0xFFFFu : us);
+
             wprobe_count++;
 
             if (us < (PROBE_BUCKETS * PROBE_BUCKET_US)) { wprobe_hist[us / PROBE_BUCKET_US]++; }
@@ -543,7 +587,9 @@ void LatencyProbe_OnWirelessTx(uint8_t ret)
         }
         else
         {
-            /* 松开或摇杆变化：不统计，但要退出武装（否则会挂到超时）*/
+            /* 松开或摇杆变化：不计入直方图，但记一笔 —— 这样对账才闭合
+               （wprobe_press_seen ≈ wprobe_count + wprobe_skip_press + wprobe_locked）*/
+            wprobe_skip_press++;
         }
     }
     else if (ret == NRF24_TX_MAXRT)
@@ -560,12 +606,61 @@ void LatencyProbe_OnWirelessTx(uint8_t ret) { (void)ret; }   /* dongle 侧用不
 
 /* dongle 侧【起点】：刚发现 RX_DR（在 wireless_rx.c 里读到 RX_DR 后立刻调）。
    注意这是"1ms 轮询发现"的时刻，不是"空中到达"的时刻，
-   所以含 0~1ms 的轮询量化误差 —— 和手柄侧用原始电平当起点是同一个道理。 */
+   所以含 0~1ms 的轮询量化误差 —— 和手柄侧用原始电平当起点是同一个道理。
+
+   ⚠️ 这里【只打点】。配对要等解出 seq 才能做，见下面的 OnRxFrame()。
+      为什么不在这一步就把 t0 和配对一起做完：
+      读 FIFO + 解帧要几百 µs，如果把打点放到解帧之后，
+      这段读包时间会被算进"收包 → USB"，把第二段算大。 */
 void LatencyProbe_OnRxPacket(void)
 {
 #if DEVICE_ROLE == DEVICE_ROLE_DONGLE
-    wprobe_t0      = DWT->CYCCNT;
+    /* 只记时刻，【不开】测量 —— 因为这时候还不知道这包是报告帧还是心跳帧。
+       心跳帧不发 USB，如果这里直接 pending = 1，就永远等不到 DataIn，
+       下一次报告帧的 DataIn 会用错的起点。 */
+    wprobe_t0_raw = DWT->CYCCNT;
+#endif
+}
+
+/* dongle 侧【配对】：解出 seq 之后调（第 8 步的严格方案）。
+   帧里带的是【上一帧】的 t1（帧在发送前组好，t1 要等发完才知道），
+   所以收到 seq 这一帧时拿到的是 t1(seq-1)，要用缓存的 t2(seq-1) 去配对，
+   得到 t1(seq-1) + t2(seq-1) = 同一个按键事件的完整端到端。
+
+   两个前提，缺一就不配对：
+     - 上一帧的 t2 有效（pend_valid）
+     - seq 连续（不连续说明中间丢了帧，缓存对不上）
+     - t1_prev != 0（手柄侧这一帧没带 t1，比如心跳帧或没武装） */
+void LatencyProbe_OnRxFrame(uint16_t seq, uint16_t t1_prev_us)
+{
+#if DEVICE_ROLE == DEVICE_ROLE_DONGLE
+    if (wprobe_pend_valid &&
+        (seq == (uint16_t)(wprobe_pend_seq + 1u)) &&
+        (t1_prev_us != 0u))
+    {
+        uint32_t total = (uint32_t)t1_prev_us + (uint32_t)wprobe_pend_t2;
+
+        wprobe_count++;
+
+        if (total < (PROBE_BUCKETS * PROBE_BUCKET_US)) { wprobe_hist[total / PROBE_BUCKET_US]++; }
+        else                                          { wprobe_hist_over++; }
+
+        if (total > wprobe_max_us) { wprobe_max_us = total; }
+        if (total < wprobe_min_us) { wprobe_min_us = total; }
+
+        WirelessProbe_UpdateStats();
+    }
+
+    wprobe_pend_valid = 0u;   /* 配对只用一次，避免同一份 t2 被下一个 t1 重复消费 */
+    wprobe_seq        = seq;  /* DataIn 里要把 t2 挂到这一帧的 seq 上 */
+
+    /* 开一次新的：t0 用"读 FIFO 之前"记下的那个时刻，
+       这样读包那几百 µs 不会被算进第二段（dongle 段 = 发现 RX_DR → USB 完成）。 */
+    wprobe_t0      = wprobe_t0_raw;
     wprobe_pending = 1u;
+#else
+    (void)seq;
+    (void)t1_prev_us;
 #endif
 }
 

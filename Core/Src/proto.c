@@ -33,11 +33,12 @@ uint16_t proto_checksum(const uint8_t *buf, uint8_t len)
 void proto_pack(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
                 uint8_t dev_id, uint8_t out[PROTO_FRAME_LEN])
 {
-    proto_pack_ex(report, seq, dev_id, PROTO_TYPE_REPORT, out);
+    proto_pack_ex(report, seq, dev_id, PROTO_TYPE_REPORT, 0u, out);
 }
 
 void proto_pack_ex(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
-                   uint8_t dev_id, uint8_t type, uint8_t out[PROTO_FRAME_LEN])
+                   uint8_t dev_id, uint8_t type, uint16_t t1_us,
+                   uint8_t out[PROTO_FRAME_LEN])
 {
     uint16_t sum;
 
@@ -56,12 +57,16 @@ void proto_pack_ex(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
     /* 12：设备 ID */
     out[12] = dev_id;
 
-    /* 13-14：校验和（对 0~12 累加） */
+    /* 13-14：校验和（对 0~12 累加）—— 【不含 t1】，见 proto.h 的说明 */
     sum = proto_checksum(out, PROTO_SUM_LEN);
     out[13] = (uint8_t)(sum & 0xFFu);
     out[14] = (uint8_t)(sum >> 8);
 
-    /* 15-31：已经是 0（memset） */
+    /* 15-16：t1（手柄段延迟，第 8 步，单位 µs，小端）*/
+    out[PROTO_T1_OFS]      = (uint8_t)(t1_us & 0xFFu);
+    out[PROTO_T1_OFS + 1u] = (uint8_t)(t1_us >> 8);
+
+    /* 17-31：已经是 0（memset） */
 }
 
 /* ============================ 校验 ============================ */

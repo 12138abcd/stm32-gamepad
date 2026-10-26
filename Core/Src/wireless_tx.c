@@ -119,8 +119,10 @@ void wireless_tx_task(void *argument)
 
         type = item[PROTO_REPORT_LEN];
 
-        /* 组帧 + 发送（心跳帧与报告帧走同一条路，只是帧类型不同） */
-        proto_pack_ex(item, txSeq, PROTO_DEV_ID_UNPAIRED, type, frame);
+        /* 组帧 + 发送（心跳帧与报告帧走同一条路，只是帧类型不同）。
+           第 8 步：把【上一帧】算出的 t1 带出去（wprobe_t1_out），
+           因为帧要先组好才能发，而 t1 要等发送完才知道 —— 只能晚一帧。 */
+        proto_pack_ex(item, txSeq, PROTO_DEV_ID_UNPAIRED, type, wprobe_t1_out, frame);
         ret = nrf24_send(frame, PROTO_FRAME_LEN, 50u);
 
         /* 第 8 步：无线探针的【终点】。

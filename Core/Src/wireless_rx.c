@@ -125,6 +125,13 @@ void wireless_rx_poll(void)
             rx_expect  = (uint16_t)(seq + 1u);
             rx_started = 1u;
 
+            /* ---- 第 8 步：把 seq 和帧里带的 t1（属于【上一帧】）交给探针 ----
+               ⚠️ 必须在 send_report() 之前调：它要先把"这次测量"开起来（pending=1），
+                  接下来 send_report 触发的 DataIn 才会把 t2 收尾。 */
+            LatencyProbe_OnRxFrame(seq,
+                (uint16_t)((uint16_t)frame[PROTO_T1_OFS] |
+                           ((uint16_t)frame[PROTO_T1_OFS + 1u] << 8)));
+
             memcpy(gamepad_report, report, PROTO_REPORT_LEN);
             send_report();
             wrx_usb_sent++;

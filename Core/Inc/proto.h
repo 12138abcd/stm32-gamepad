@@ -38,6 +38,12 @@
 /* 校验和覆盖范围：前 13 字节（0~12） */
 #define PROTO_SUM_LEN         13u
 
+/* ---- 第 8 步：t1 字段（手柄段延迟）----
+   偏移 15~16，uint16 小端，单位 µs（最大 65.5ms，够用）。
+   放在原来的预留区里，**不扩大校验和范围** ——
+   完整性由 nRF24 的 2 字节 CRC 兜底；改校验和范围会动到已经验收过的第 5 步协议。 */
+#define PROTO_T1_OFS          15u
+
 /* ============================ 断线判据 ============================ */
 #define PROTO_LINK_TIMEOUT_MS   100u  /* dongle：100ms 没收到合法包 → 断线 */
 #define PROTO_LINK_MAXRT_COUNT  10u   /* 手柄：连续 10 次 MAX_RT → 断线 */
@@ -55,11 +61,15 @@ void proto_pack(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
                 uint8_t dev_id, uint8_t out[PROTO_FRAME_LEN]);
 
 /**
- * 同 proto_pack，但可以指定帧类型（第 7 步：报告帧 / 心跳帧）。
- * proto_pack() 就是 type = PROTO_TYPE_REPORT 的特例。
+ * 同 proto_pack，但可以指定帧类型（第 7 步）和 t1（第 8 步）。
+ * proto_pack() 就是 type = REPORT、t1 = 0 的特例。
+ *
+ * @param t1_us  手柄段延迟（输入变化 → TX_OK），单位 µs；不带这个信息时传 0。
+ *               放帧的偏移 15~16，不参与校验和（靠 nRF24 的 CRC 兜底）。
  */
 void proto_pack_ex(const uint8_t report[PROTO_REPORT_LEN], uint16_t seq,
-                   uint8_t dev_id, uint8_t type, uint8_t out[PROTO_FRAME_LEN]);
+                   uint8_t dev_id, uint8_t type, uint16_t t1_us,
+                   uint8_t out[PROTO_FRAME_LEN]);
 
 /**
  * 只校验、不拆字段：帧类型是已知类型 + 校验和正确 → 返回 1。

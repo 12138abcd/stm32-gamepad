@@ -30,6 +30,12 @@
    ****************************************************************** */
 #define LATENCY_PROBE_ENABLE   1
 
+/* ---- 第 8 步：手柄侧"上一帧算出的 t1"（µs）----
+   下一帧组帧时带出去（proto_pack_ex 的 t1_us 参数）。
+   ⚠️ 放在总开关【外面】：关掉探针时它仍然存在（恒 0），
+      这样 wireless_tx.c 不用加条件编译。 */
+extern volatile uint16_t wprobe_t1_out;
+
 #if LATENCY_PROBE_ENABLE
 
 /* 打点脚：PB10。选它的理由：不占 ADC 通道、不占 SPI1（PA4~PA7 留给无线）、
@@ -49,7 +55,9 @@ void LatencyProbe_DataInHook(uint8_t epnum);   /* 由 usbd_conf.c 里的宏调�
    两段相加 = 端到端；中间只差 ACK 回传（~130µs）。
    统计量是独立一套：wprobe_*（不碰有线那套 probe_*）。 */
 void LatencyProbe_OnWirelessTx(uint8_t ret);   /* 手柄侧：一次无线发送完成，ret = NRF24_TX_* */
-void LatencyProbe_OnRxPacket(void);            /* dongle 侧：刚发现 RX_DR */
+void LatencyProbe_OnRxPacket(void);            /* dongle 侧：读 FIFO 之前，只记时刻 */
+void LatencyProbe_OnRxFrame(uint16_t seq, uint16_t t1_prev_us);
+                                               /* dongle 侧：解得报告帧之后，配对 + 开测量 */
 
 #else  /* -------------------- 关闭时：全部退化成空操作 -------------------- */
 
@@ -58,6 +66,7 @@ void LatencyProbe_OnRxPacket(void);            /* dongle 侧：刚发现 RX_DR *
 #define LatencyProbe_DataInHook(epnum)    ((void)0)
 #define LatencyProbe_OnWirelessTx(ret)    ((void)0)
 #define LatencyProbe_OnRxPacket()         ((void)0)
+#define LatencyProbe_OnRxFrame(seq, t1)   ((void)0)
 
 #endif /* LATENCY_PROBE_ENABLE */
 
