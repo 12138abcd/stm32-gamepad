@@ -442,12 +442,12 @@
             <File>
               <FileName>nrf24_test.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Core\Src\nrf24_test.c</FilePath>
+              <FilePath>..\Core\Src\test\nrf24_test.c</FilePath>
             </File>
             <File>
               <FileName>p2p.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Core\Src\p2p.c</FilePath>
+              <FilePath>..\Core\Src\test\p2p.c</FilePath>
             </File>
             <File>
               <FileName>proto.c</FileName>
@@ -457,7 +457,7 @@
             <File>
               <FileName>proto_test.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Core\Src\proto_test.c</FilePath>
+              <FilePath>..\Core\Src\test\proto_test.c</FilePath>
             </File>
             <File>
               <FileName>main.c</FileName>
