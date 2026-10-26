@@ -1,40 +1,28 @@
 /**
-  ******************************************************************************
-  * @file    wireless_tx.c
-  * @brief   手柄端无线发送实现（第 6 步，第 7 步加通道节奏）
-  *
-  * 数据流：
-  *   1ms 任务：gamepad_report ──► 队列（深度 2，满了丢最旧）
-  *              · 无线模式：每拍入队，帧类型 = 报告帧
-  *              · 有线模式：每 20ms 入队一次，帧类型 = 心跳帧
-  *   独立任务：队列 ──► proto_pack_ex ──► nrf24_send ──► 统计
-  *
-  * 为什么队列深度只有 2：1ms 生产、约 2~3ms 消费，最多积压 1 帧；
-  * 深度 2 足够，且满了丢最旧的不影响"最新状态"。
-  *
-  * ============================ 第 7 步：心跳 ============================
-  * 有线模式下不彻底停发无线，而是每 20ms 发一帧【心跳帧】：
-  *   - 目的只有一个：让 dongle 的 100ms 超时不触发，链路保持"热备"；
-  *   - 拔线瞬间切回满速，dongle 那边不需要重新 link，切换没有空窗；
-  *   - 心跳帧类型是 PROTO_TYPE_HEARTBEAT，dongle 收到后【不】写 gamepad_report、
-  *     【不】发 USB —— 所以有线模式下 PC 上只有一个设备在动。
-  ******************************************************************************
-  */
+ * @file    wireless_tx.c
+ * @brief   手柄端无线发送：队列 + 独立任务（第 6 步，第 7 步加心跳节奏）
+ *
+ * 1ms 任务把报告塞进队列（深度 2，满则丢最旧）；独立任务取出 -> 组帧 -> nrf24_send。
+ * 有线模式每 20ms 只发心跳帧（保活，dongle 收到不写报告）；无线模式每拍发报告帧。
+ *
+ * @note 为什么用队列 + 独立任务：nrf24_send 阻塞 1~3ms，塞进 1ms 任务会打崩节拍。
+ *       心跳为什么 20ms、队列为什么"丢旧保新" —— 详见《固件代码导读》11-§11.3、§11.7。
+ */
 
 #include "wireless_tx.h"
 #include "proto.h"
 #include "nrf24.h"
 #include "main.h"
 #include "report.h"
-#include "app.h"            /* app_is_wired()：第 7 步的通道判据 */
-#include "latency_probe.h"  /* 第 8 步：无线探针的终点 */
+#include "app.h"            /* app_is_wired() */
+#include "latency_probe.h"  /* 无线探针的终点 */
 #include "cmsis_os.h"
 #include <string.h>
 
-#define WTX_QUEUE_DEPTH   2u      /* 队列深度 */
+#define WTX_QUEUE_DEPTH   2u      /* 深度 2 足够：1ms 生产、约 3ms 消费 */
 #define WTX_ITEM_LEN      (PROTO_REPORT_LEN + 1u)  /* 9 字节报告 + 1 字节帧类型 */
-#define WTX_GET_TIMEOUT   5u      /* 取队列超时（ms）：从 10 降到 5，切通道响应更快 */
-#define WTX_HEARTBEAT_MS  20u     /* 有线模式心跳间隔：20ms = 50 帧/秒，远小于 100ms 超时 */
+#define WTX_GET_TIMEOUT   5u      /* 取队列超时：越短，切通道响应越快 */
+#define WTX_HEARTBEAT_MS  20u     /* 心跳间隔：50 帧/秒，远小于 dongle 的 100ms 超时 */
 
 static osMessageQueueId_t txQueue = NULL;
 static uint16_t           txSeq   = 0u;
@@ -65,7 +53,6 @@ void wireless_tx_on_tick(void)
 
     if (txQueue == NULL) { return; }
 
-    /* ---- 第 7 步：按通道决定"这一拍要不要入队、入什么类型" ---- */
     if (app_is_wired())
     {
         /* 有线：每 20ms 一帧心跳，只为保活 */
@@ -76,8 +63,7 @@ void wireless_tx_on_tick(void)
     }
     else
     {
-        /* 无线（或两条都不通）：每拍入队，帧类型 = 报告帧。
-           注意 LOST 状态也要照常入队 —— 不发就永远连不回来。 */
+        /* 无线 / LOST：每拍入队。LOST 也要发 —— 不发就永远连不回来。 */
         hb_acc = 0u;
         type   = PROTO_TYPE_REPORT;
     }
@@ -85,15 +71,14 @@ void wireless_tx_on_tick(void)
     memcpy(item, gamepad_report, PROTO_REPORT_LEN);
     item[PROTO_REPORT_LEN] = type;
 
-    /* 先塞最新报告；如果队列满，就把最旧的那帧挤出去（丢旧、保新）。
-       为什么必须保新：1ms 生产、约 3ms 消费（nrf24_send 等 ACK），队列永远是满的；
-       如果"丢新"，发出去的就全是几毫秒前的旧报告 —— 按键变化永远传不过去。 */
+    /* 满则丢最旧、保最新：队列几乎总是满的，若"丢新"，
+       发出去的就全是几毫秒前的旧报告，按键变化永远传不过去。 */
     if (osMessageQueuePut(txQueue, item, 0u, 0u) != osOK)
     {
         (void)osMessageQueueGet(txQueue, old, NULL, 0u);   /* 丢掉最旧的 */
         if (osMessageQueuePut(txQueue, item, 0u, 0u) != osOK)
         {
-            wtx_dropped++;      /* 理论上不会走到这里 */
+            wtx_dropped++;      /* 理论上到不了这里 */
         }
     }
 }
@@ -111,7 +96,6 @@ void wireless_tx_task(void *argument)
 
     for (;;)
     {
-        /* 等一帧（最多 5ms） */
         if (osMessageQueueGet(txQueue, item, NULL, WTX_GET_TIMEOUT) != osOK)
         {
             continue;
@@ -119,15 +103,12 @@ void wireless_tx_task(void *argument)
 
         type = item[PROTO_REPORT_LEN];
 
-        /* 组帧 + 发送（心跳帧与报告帧走同一条路，只是帧类型不同）。
-           第 8 步：把【上一帧】算出的 t1 带出去（wprobe_t1_out），
-           因为帧要先组好才能发，而 t1 要等发送完才知道 —— 只能晚一帧。 */
+        /* t1 只能"晚一帧"带出去：帧要先组好，而 t1 要等发送完才知道。 */
         proto_pack_ex(item, txSeq, PROTO_DEV_ID_UNPAIRED, type, wprobe_t1_out, frame);
         ret = nrf24_send(frame, PROTO_FRAME_LEN, 50u);
 
-        /* 第 8 步：无线探针的【终点】。
-           TX_OK = 收到 dongle 硬件回的 ACK，即"dongle 已经收到包了"，
-           所以空中时间已经包含在这一段里。有线模式下探针没武装，这个调用直接返回。 */
+        /* 探针终点：TX_OK = 收到 ACK = dongle 已收到，所以空中时间已含在这一段里。
+           有线模式下探针没武装，这个调用直接返回。 */
         LatencyProbe_OnWirelessTx(ret);
 
         wtx_sent++;
@@ -145,9 +126,8 @@ void wireless_tx_task(void *argument)
         }
         else
         {
-            /* TIMEOUT：发送状态机根本没动，比 MAX_RT 更严重（模块没接好 / SPI 出错）。
-               ⚠️ 第 6 步这里是空的 —— 若当时 link_up 已经是 1，就会永远卡在 1，
-               而第 7 步要拿链路状态当判据，所以必须计入（Q3 的修复）。 */
+            /* TIMEOUT 比 MAX_RT 更严重（发送状态机根本没动：模块没接好 / SPI 出错）。
+               必须按失败计入 —— 否则 SPI 挂掉时 link_up 会永远卡在 1。 */
             wtx_timeout++;
             wtx_link_up = proto_link_on_maxrt();
         }
