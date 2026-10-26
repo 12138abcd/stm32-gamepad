@@ -43,11 +43,21 @@ void LatencyProbe_Init(void);                  /* 在 main() 的 USER CODE 2 里
 void LatencyProbe_OnTick(void);                /* 主循环里每拍调一次 */
 void LatencyProbe_DataInHook(uint8_t epnum);   /* 由 usbd_conf.c 里的宏调用 */
 
+/* ---- 第 8 步：无线延迟测量（两段相加）----
+   手柄侧 : 输入原始电平变化 → nrf24_send() 返回 TX_OK（空中时间已含在 ACK 里）
+   dongle : 读到 RX_DR（收到包） → USB DataIn 完成
+   两段相加 = 端到端；中间只差 ACK 回传（~130µs）。
+   统计量是独立一套：wprobe_*（不碰有线那套 probe_*）。 */
+void LatencyProbe_OnWirelessTx(uint8_t ret);   /* 手柄侧：一次无线发送完成，ret = NRF24_TX_* */
+void LatencyProbe_OnRxPacket(void);            /* dongle 侧：刚发现 RX_DR */
+
 #else  /* -------------------- 关闭时：全部退化成空操作 -------------------- */
 
 #define LatencyProbe_Init()               ((void)0)
 #define LatencyProbe_OnTick()             ((void)0)
 #define LatencyProbe_DataInHook(epnum)    ((void)0)
+#define LatencyProbe_OnWirelessTx(ret)    ((void)0)
+#define LatencyProbe_OnRxPacket()         ((void)0)
 
 #endif /* LATENCY_PROBE_ENABLE */
 

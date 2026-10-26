@@ -27,6 +27,7 @@
 #include "main.h"
 #include "report.h"
 #include "app.h"            /* app_is_wired()：第 7 步的通道判据 */
+#include "latency_probe.h"  /* 第 8 步：无线探针的终点 */
 #include "cmsis_os.h"
 #include <string.h>
 
@@ -121,6 +122,11 @@ void wireless_tx_task(void *argument)
         /* 组帧 + 发送（心跳帧与报告帧走同一条路，只是帧类型不同） */
         proto_pack_ex(item, txSeq, PROTO_DEV_ID_UNPAIRED, type, frame);
         ret = nrf24_send(frame, PROTO_FRAME_LEN, 50u);
+
+        /* 第 8 步：无线探针的【终点】。
+           TX_OK = 收到 dongle 硬件回的 ACK，即"dongle 已经收到包了"，
+           所以空中时间已经包含在这一段里。有线模式下探针没武装，这个调用直接返回。 */
+        LatencyProbe_OnWirelessTx(ret);
 
         wtx_sent++;
         if (type == PROTO_TYPE_HEARTBEAT) { wtx_heartbeat++; }

@@ -153,15 +153,15 @@ void app_tick(void)
     analog_update();         /* 摇杆/扳机：读 ADC + 映射 */
     channel_on_tick();       /* 第 7 步：先判通道 */
 
+    /* 第 8 步起：探针【两种模式都调】——
+       有线版靠 USB 的 DataIn 回调收尾，无线版靠 nrf24_send 返回 TX_OK 收尾；
+       具体走哪一套，由 LatencyProbe_OnTick() 内部按 app_is_wired() 判断。 */
+    LatencyProbe_OnTick();
+
     if (app_is_wired())
     {
-        LatencyProbe_OnTick();   /* 探针靠 USB 的 DataIn 回调收尾 —— 只有走 USB 才有意义 */
-        send_report();           /* USB 上报 */
+        send_report();           /* USB 上报（无线模式下没枚举，调了只会一直累加 tx_fail） */
     }
-    /* ⚠️ 无线模式下【不】调 send_report、也【不】调 LatencyProbe_OnTick：
-       前者在没枚举时只会一直 FAIL，白白累加 tx_fail；
-       后者没有 DataIn 回调收尾，只会让 probe_timeout 空涨。
-       无线链路的延迟测量属于第 8 步，不混进这里。 */
 
     wireless_tx_on_tick();   /* 有线 → 20ms 心跳；无线 → 每拍塞报告帧 */
 #else

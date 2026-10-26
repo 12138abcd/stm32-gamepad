@@ -19,6 +19,7 @@
 #include "nrf24.h"
 #include "main.h"
 #include "report.h"
+#include "latency_probe.h"   /* 第 8 步：dongle 侧无线探针的起点 */
 #include "cmsis_os.h"
 #include <string.h>
 
@@ -79,6 +80,11 @@ void wireless_rx_poll(void)
     st = nrf24_get_status();
     if ((st & NRF24_STATUS_RX_DR) != 0u)
     {
+        /* 第 8 步：无线探针的【起点】= 固件发现 RX_DR 的那一刻。
+           ⚠️ 必须放在 read_rx_payload 之前 —— 读 FIFO 要几百 µs，
+              放在后面会把读包时间算进"收包 → USB"里，把 dongle 段的延迟算大。 */
+        LatencyProbe_OnRxPacket();
+
         nrf24_read_rx_payload(frame, PROTO_FRAME_LEN);
         nrf24_clear_irq(NRF24_STATUS_RX_DR);
 

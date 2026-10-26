@@ -31,6 +31,8 @@
 #include "main.h"              /* 按键引脚宏 + DWT/CoreDebug */
 #include "report.h"            /* gamepad_report[] */
 #include "usbd_customhid.h"    /* CUSTOM_HID_EPIN_ADDR */
+#include "app.h"               /* DEVICE_ROLE + app_is_wired()（第 8 步）*/
+#include "nrf24.h"             /* NRF24_TX_OK / NRF24_TX_MAXRT（第 8 步）*/
 #include <string.h>            /* memcmp / memcpy */
 
 #if LATENCY_PROBE_ENABLE
@@ -88,6 +90,70 @@ static uint8_t  probe_changed      = 0;   /* 本次测量中报告内容是否�
 static uint8_t  probe_raw_prev     = 0;   /* 上一拍的 8 个按键原始电平 */
 static uint8_t  probe_is_press     = 2u;  /* 本次变化：1=按下 0=松开 2=其他(摇杆等)*/
 
+/* ============================ 无线探针（第 8 步）============================
+   有线模式的终点是 USB 的 DataIn 回调；无线没有这个回调，所以拆成两段：
+
+     手柄侧：输入原始电平变化 → nrf24_send() 返回 TX_OK
+             TX_OK = 收到 dongle 硬件回的 ACK，所以【空中时间已经包含在这一段里】，
+             不需要再单独加"空中 ≈350µs"。
+     dongle：读到 RX_DR（收到包） → USB DataIn 完成
+
+   两段相加 = 端到端，中间只差一个 ACK 回传（~130µs）。
+
+   ⚠️ 为什么另起一套变量、不和有线探针共用：
+      有线那套已经验收过（P50 0.52ms），不该为了新功能去动它；
+      两套分开，出问题时能一眼分清是哪一套坏了。
+   ========================================================================== */
+
+#if DEVICE_ROLE == DEVICE_ROLE_HANDHELD
+
+/* ---- 手柄侧统计量（Watch 里看这些）---- */
+volatile uint16_t wprobe_hist[PROBE_BUCKETS];
+volatile uint16_t wprobe_hist_over = 0;            /* 超量程（>5000µs），应该 0 */
+volatile uint32_t wprobe_count     = 0;            /* 有效样本数（只算按下）*/
+volatile uint32_t wprobe_max_us    = 0;
+volatile uint32_t wprobe_min_us    = 0xFFFFFFFFu;
+volatile uint32_t wprobe_p50       = 0;
+volatile uint32_t wprobe_p95       = 0;
+volatile uint32_t wprobe_p99       = 0;
+volatile uint32_t wprobe_timeout   = 0;            /* 武装超时次数，应该 0 */
+volatile uint32_t wprobe_maxrt_cnt = 0;            /* 武装后遇到 MAX_RT 的帧数（链路差的证据）*/
+
+/* ⚠️ 下面 4 个是【跨任务】的：1ms 任务里写（WirelessProbe_OnTick），
+   无线任务里读（LatencyProbe_OnWirelessTx）—— 必须 volatile，
+   否则编译器可能把它缓存进寄存器，两个任务看到的值不一致。
+   这是无线版和有线条最大的结构差别（有线版是"任务写、USB 中断读"）。 */
+static volatile uint32_t wprobe_t0      = 0;   /* 起点：原始电平第一次变化 */
+static volatile uint8_t  wprobe_armed   = 0;
+static volatile uint8_t  wprobe_changed = 0;   /* 报告内容已反映这次变化 */
+static volatile uint32_t wprobe_lockout = 0;   /* 上次完成的时刻（封锁期）*/
+
+/* 下面这几个只在 1ms 任务里用，不需要 volatile */
+static uint8_t  wprobe_is_press  = 2u;
+static uint8_t  wprobe_raw_prev  = 0;
+static uint8_t  wprobe_prev[9];         /* 上一拍的报告内容（判按下/松开用）*/
+
+#else  /* ---------------- DONGLE ---------------- */
+
+/* ---- dongle 侧统计量 ---- */
+volatile uint16_t wprobe_hist[PROBE_BUCKETS];
+volatile uint16_t wprobe_hist_over = 0;
+volatile uint32_t wprobe_count     = 0;
+volatile uint32_t wprobe_max_us    = 0;
+volatile uint32_t wprobe_min_us    = 0xFFFFFFFFu;
+volatile uint32_t wprobe_p50       = 0;
+volatile uint32_t wprobe_p95       = 0;
+volatile uint32_t wprobe_p99       = 0;
+volatile uint32_t wprobe_timeout   = 0;
+volatile uint32_t wprobe_maxrt_cnt = 0;   /* dongle 侧不用，占位保持变量名一致 */
+
+/* ⚠️ 这两个也是跨上下文的：1ms 任务写（OnRxPacket）、USB 中断读（DataInHook），
+   所以同样要 volatile。 */
+static volatile uint32_t wprobe_t0      = 0;   /* 起点：发现 RX_DR 的时刻 */
+static volatile uint8_t  wprobe_pending = 0;   /* 1 = 有一次测量在等 USB 完成 */
+
+#endif
+
 /* ============================ 内部工具 ============================ */
 
 /* 数一个字节里有几个 1 —— 用来判断按钮位变多了（按下）还是变少了（松开）。 */
@@ -132,6 +198,83 @@ static void LatencyProbe_UpdateStats(void)
     probe_p95 = r95;
     probe_p99 = r99;
 }
+
+/* ---- 无线探针的统计更新：逻辑和有线那套一样，只是换成 wprobe_* ---- */
+static void WirelessProbe_UpdateStats(void)
+{
+    uint32_t total = 0u, cum = 0u, i;
+    uint32_t t50, t95, t99;
+    uint32_t r50 = 0u, r95 = 0u, r99 = 0u;
+
+    for (i = 0u; i < PROBE_BUCKETS; i++) { total += wprobe_hist[i]; }
+    if (total < 20u) { return; }
+
+    t50 = (total * 50u) / 100u;
+    t95 = (total * 95u) / 100u;
+    t99 = (total * 99u) / 100u;
+
+    for (i = 0u; i < PROBE_BUCKETS; i++)
+    {
+        cum += wprobe_hist[i];
+        if ((r50 == 0u) && (cum >= t50)) { r50 = (i + 1u) * PROBE_BUCKET_US; }
+        if ((r95 == 0u) && (cum >= t95)) { r95 = (i + 1u) * PROBE_BUCKET_US; }
+        if ((r99 == 0u) && (cum >= t99)) { r99 = (i + 1u) * PROBE_BUCKET_US; }
+    }
+
+    wprobe_p50 = r50;
+    wprobe_p95 = r95;
+    wprobe_p99 = r99;
+}
+
+#if DEVICE_ROLE == DEVICE_ROLE_HANDHELD
+/* 无线模式下的每拍处理：武装 + 判按下/松开 + 超时兜底。
+   和有线版几乎一样，唯一区别是【终点不在这里】—— 在 LatencyProbe_OnWirelessTx() 里。 */
+static void WirelessProbe_OnTick(void)
+{
+    uint8_t raw = 0u;
+
+    if (HAL_GPIO_ReadPin(A_GPIO_Port,     A_Pin)     == GPIO_PIN_RESET) { raw |= 0x01u; }
+    if (HAL_GPIO_ReadPin(B_GPIO_Port,     B_Pin)     == GPIO_PIN_RESET) { raw |= 0x02u; }
+    if (HAL_GPIO_ReadPin(X_GPIO_Port,     X_Pin)     == GPIO_PIN_RESET) { raw |= 0x04u; }
+    if (HAL_GPIO_ReadPin(Y_GPIO_Port,     Y_Pin)     == GPIO_PIN_RESET) { raw |= 0x08u; }
+    if (HAL_GPIO_ReadPin(up_GPIO_Port,    up_Pin)    == GPIO_PIN_RESET) { raw |= 0x10u; }
+    if (HAL_GPIO_ReadPin(down_GPIO_Port,  down_Pin)  == GPIO_PIN_RESET) { raw |= 0x20u; }
+    if (HAL_GPIO_ReadPin(left_GPIO_Port,  left_Pin)  == GPIO_PIN_RESET) { raw |= 0x40u; }
+    if (HAL_GPIO_ReadPin(right_GPIO_Port, right_Pin) == GPIO_PIN_RESET) { raw |= 0x80u; }
+
+    /* ① 原始电平变化 → 武装（同一个道理：起点必须是"固件第一次看到变化"）*/
+    if (raw != wprobe_raw_prev)
+    {
+        wprobe_raw_prev = raw;
+
+        if ((wprobe_armed == 0u) && ((DWT->CYCCNT - wprobe_lockout) > PROBE_LOCKOUT_CYCLES))
+        {
+            wprobe_armed   = 1u;
+            wprobe_changed = 0u;
+            wprobe_t0      = DWT->CYCCNT;
+        }
+    }
+
+    /* ② 报告变化 → 判按下/松开 + 标记"内容已反映这次变化" */
+    if (memcmp(wprobe_prev, gamepad_report, 9) != 0)
+    {
+        uint8_t old_bits = popcount8(wprobe_prev[0])    + popcount8(wprobe_prev[1]);
+        uint8_t new_bits = popcount8(gamepad_report[0]) + popcount8(gamepad_report[1]);
+        wprobe_is_press = (new_bits > old_bits) ? 1u : ((new_bits < old_bits) ? 0u : 2u);
+        memcpy(wprobe_prev, gamepad_report, 9);
+
+        if (wprobe_armed) { wprobe_changed = 1u; }
+    }
+
+    /* ③ 超时兜底（防止武装挂着、被很久之后的一次发送误消费 → 测出假的巨大值）*/
+    if (wprobe_armed && ((DWT->CYCCNT - wprobe_t0) > PROBE_ARM_TIMEOUT_CYCLES))
+    {
+        wprobe_armed   = 0u;
+        wprobe_changed = 0u;
+        wprobe_timeout++;
+    }
+}
+#endif /* DEVICE_ROLE_HANDHELD */
 
 /* ============================ 对外接口 ============================ */
 
@@ -189,7 +332,39 @@ void LatencyProbe_OnTick(void)
         probe_armed       = 0u;
         probe_changed     = 0u;
         probe_lockout     = DWT->CYCCNT;   /* 清完先封锁，避开清空瞬间的残留 */
+
+        /* ---- 第 8 步：无线探针也一起清（两块板共用同一个 probe_clear 开关）---- */
+        {
+            uint16_t k2;
+            for (k2 = 0u; k2 < PROBE_BUCKETS; k2++) { wprobe_hist[k2] = 0u; }
+            wprobe_hist_over = 0u;
+            wprobe_count     = 0u;
+            wprobe_max_us    = 0u;
+            wprobe_min_us    = 0xFFFFFFFFu;
+            wprobe_p50 = 0u; wprobe_p95 = 0u; wprobe_p99 = 0u;
+            wprobe_timeout   = 0u;
+            wprobe_maxrt_cnt = 0u;
+#if DEVICE_ROLE == DEVICE_ROLE_HANDHELD
+            wprobe_armed     = 0u;
+            wprobe_changed   = 0u;
+            wprobe_lockout   = DWT->CYCCNT;
+#else
+            wprobe_pending   = 0u;
+#endif
+        }
     }
+
+#if DEVICE_ROLE == DEVICE_ROLE_HANDHELD
+    /* ---- 第 8 步：无线模式走【独立那一套】----
+       起点同样是"原始电平变化"，但终点是 nrf24_send() 返回 TX_OK，
+       不是 USB 的 DataIn 回调（无线模式下这个回调根本不会来）。
+       所以这里做完武装/判按下就返回，不往下走有线的逻辑。 */
+    if (app_is_wired() == 0u)
+    {
+        WirelessProbe_OnTick();
+        return;
+    }
+#endif
 
     /* ---- 读 8 个按键引脚的【原始电平】（未经消抖）---- */
     if (HAL_GPIO_ReadPin(A_GPIO_Port,     A_Pin)     == GPIO_PIN_RESET) { raw |= 0x01u; }
@@ -275,6 +450,29 @@ void LatencyProbe_DataInHook(uint8_t epnum)
 
         probe_send_done++;                     /* 又成功发出去了一帧报告 */
 
+#if DEVICE_ROLE == DEVICE_ROLE_DONGLE
+        /* ---- 第 8 步：dongle 侧无线探针的【终点】----
+           起点是"发现 RX_DR"（wireless_rx.c 里调 LatencyProbe_OnRxPacket），
+           这里是"报告真正发上 USB 总线"，所以这一段的含义是
+           【dongle 收到包 → PC 能取到】。 */
+        if (wprobe_pending)
+        {
+            uint32_t cycles_w = DWT->CYCCNT - wprobe_t0;
+            uint32_t us_w     = cycles_w / (SystemCoreClock / 1000000u);
+
+            wprobe_pending = 0u;
+            wprobe_count++;
+
+            if (us_w < (PROBE_BUCKETS * PROBE_BUCKET_US)) { wprobe_hist[us_w / PROBE_BUCKET_US]++; }
+            else                                          { wprobe_hist_over++; }
+
+            if (us_w > wprobe_max_us) { wprobe_max_us = us_w; }
+            if (us_w < wprobe_min_us) { wprobe_min_us = us_w; }
+
+            WirelessProbe_UpdateStats();
+        }
+#endif
+
         /* 测量完成要同时满足三个条件：
              armed        —— 有一次测量正在进行
              changed      —— 报告内容已经反映出这次变化（也就是消抖已完成）
@@ -309,6 +507,66 @@ void LatencyProbe_DataInHook(uint8_t epnum)
             }
         }
     }
+}
+
+/* ==================== 第 8 步：无线探针的两个端点 ==================== */
+
+#if DEVICE_ROLE == DEVICE_ROLE_HANDHELD
+/* 手柄侧【终点】：一次无线发送完成（在 wireless_tx.c 里 nrf24_send 返回后调）。
+   ret 为 NRF24_TX_OK 时说明收到了 dongle 的硬件 ACK —— 这一刻 dongle 已经收到包了，
+   所以"空中时间"已经包含在这一段里，不需要另外再加。 */
+void LatencyProbe_OnWirelessTx(uint8_t ret)
+{
+    if ((wprobe_armed == 0u) || (wprobe_changed == 0u)) { return; }
+
+    if (ret == NRF24_TX_OK)
+    {
+        uint32_t cycles = DWT->CYCCNT - wprobe_t0;   /* 无符号减法：计数器溢出也正确 */
+        uint32_t us     = cycles / (SystemCoreClock / 1000000u);
+
+        wprobe_armed   = 0u;
+        wprobe_changed = 0u;
+        wprobe_lockout = DWT->CYCCNT;
+
+        /* 只统计【按下】—— 和有线同一个理由：松手晚几毫秒没人感知得到 */
+        if (wprobe_is_press == 1u)
+        {
+            wprobe_count++;
+
+            if (us < (PROBE_BUCKETS * PROBE_BUCKET_US)) { wprobe_hist[us / PROBE_BUCKET_US]++; }
+            else                                        { wprobe_hist_over++; }
+
+            if (us > wprobe_max_us) { wprobe_max_us = us; }
+            if (us < wprobe_min_us) { wprobe_min_us = us; }
+
+            WirelessProbe_UpdateStats();
+        }
+        else
+        {
+            /* 松开或摇杆变化：不统计，但要退出武装（否则会挂到超时）*/
+        }
+    }
+    else if (ret == NRF24_TX_MAXRT)
+    {
+        /* 这一帧没送到：【不结束测量】，等下一帧继续等。
+           这样"链路差导致的重发"会真实地反映成更大的延迟 —— 这是对的，
+           不能为了数字好看把它剔掉。 */
+        wprobe_maxrt_cnt++;
+    }
+}
+#else
+void LatencyProbe_OnWirelessTx(uint8_t ret) { (void)ret; }   /* dongle 侧用不到 */
+#endif
+
+/* dongle 侧【起点】：刚发现 RX_DR（在 wireless_rx.c 里读到 RX_DR 后立刻调）。
+   注意这是"1ms 轮询发现"的时刻，不是"空中到达"的时刻，
+   所以含 0~1ms 的轮询量化误差 —— 和手柄侧用原始电平当起点是同一个道理。 */
+void LatencyProbe_OnRxPacket(void)
+{
+#if DEVICE_ROLE == DEVICE_ROLE_DONGLE
+    wprobe_t0      = DWT->CYCCNT;
+    wprobe_pending = 1u;
+#endif
 }
 
 #endif /* LATENCY_PROBE_ENABLE */
