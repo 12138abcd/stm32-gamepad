@@ -16,12 +16,18 @@
 #include "main.h"
 #include "report.h"
 #include "latency_probe.h"   /* 无线探针的起点 / 配对 */
+#include "param_store.h"     /* 第 9 步：配对 ID 存 Flash */
 #include "cmsis_os.h"
 #include <string.h>
 
 /* 断线期间每 100ms 补发一次空闲报告：只发一次可能撞上端点忙而被丢；
    周期重发是幂等的（每次都是"全松开"），不会有副作用。 */
 #define RX_IDLE_PERIOD_MS   100u
+
+/* 第 9 步：上电后 10 秒内允许被配对（覆盖旧 ID）。
+   为什么需要窗口：dongle 没有按键，配错对象后没法手动重配 ——
+   只能靠"重新上电 + 窗口内让手柄再发一次配对帧"。 */
+#define RX_PAIR_WINDOW_MS   10000u
 
 /* 空闲报告：按键全 0、Hat 中立(8)、四轴居中(0x80)、扳机松开(0) */
 static const uint8_t idle_report[PROTO_REPORT_LEN] =
@@ -38,6 +44,12 @@ volatile uint32_t wrx_usb_sent  = 0u;
 volatile uint32_t wrx_heartbeat = 0u;
 volatile uint32_t wrx_idle_sent = 0u;
 
+/* 第 9 步：配对状态 */
+volatile uint8_t  wrx_paired_id = 0u;   /* 已配对的 ID；0 = 未配对 / 学习模式 */
+volatile uint32_t wrx_pair_ok   = 0u;   /* 配对成功次数 */
+volatile uint32_t wrx_pair_rej  = 0u;   /* 因 ID 不匹配被丢弃的帧数 */
+volatile uint32_t wrx_pair_drop = 0u;   /* 窗口外收到的配对帧数 */
+
 static uint16_t rx_expect    = 0u;   /* 期望的下一个 seq */
 static uint8_t  rx_started   = 0u;   /* 是否已收到第一帧 */
 static uint8_t  idle_first   = 1u;   /* 1 = 本次断线还没发过（进来先立刻发一次） */
@@ -49,6 +61,9 @@ void wireless_rx_init(void)
     nrf24_flush_rx();
     nrf24_set_mode_rx();          /* PRIM_RX=1 + CE 高 */
     proto_link_reset();
+
+    /* 第 9 步：从 Flash 读"要接受哪个 ID"（0 = 还没配过，进入学习模式）*/
+    wrx_paired_id = (uint8_t)(param_get()->dev_id & 0xFFu);
 }
 
 void wireless_rx_poll(void)
@@ -84,7 +99,9 @@ void wireless_rx_poll(void)
         /* 校验（类型 + 校验和），按失败原因分类统计 */
         if (proto_verify(frame) == 0u)
         {
-            if ((frame[11] != PROTO_TYPE_REPORT) && (frame[11] != PROTO_TYPE_HEARTBEAT))
+            if ((frame[11] != PROTO_TYPE_REPORT) &&
+                (frame[11] != PROTO_TYPE_HEARTBEAT) &&
+                (frame[11] != PROTO_TYPE_PAIR))
             {
                 wrx_bad_type++;
             }
@@ -107,6 +124,39 @@ void wireless_rx_poll(void)
             wrx_heartbeat++;
             wrx_link_up = proto_link_on_ok(now);
         }
+        else if (frame[11] == PROTO_TYPE_PAIR)
+        {
+            /* ---- 第 9 步：配对帧 ----
+               接受条件：还没配过（学习模式），或在上电后的 10 秒窗口内（允许重配）。
+               接受后存 Flash —— 之后只认这个 ID。 */
+            seq = (uint16_t)frame[9] | ((uint16_t)frame[10] << 8);
+            if (rx_started && (seq != rx_expect))
+            {
+                wrx_bad_seq++;
+            }
+            rx_expect  = (uint16_t)(seq + 1u);
+            rx_started = 1u;
+
+            dev_id = frame[12];
+
+            if ((wrx_paired_id == 0u) || (now < RX_PAIR_WINDOW_MS))
+            {
+                if ((dev_id != 0u) && (dev_id != wrx_paired_id))
+                {
+                    pad_params_t p = *param_get();
+                    p.dev_id = (uint16_t)dev_id;
+                    (void)param_set(&p);       /* 存 Flash，掉电不丢 */
+                    wrx_paired_id = dev_id;
+                    wrx_pair_ok++;
+                }
+            }
+            else
+            {
+                wrx_pair_drop++;               /* 窗口外的配对帧：不理 */
+            }
+
+            wrx_link_up = proto_link_on_ok(now);
+        }
         else if (proto_unpack(frame, report, &seq, &dev_id) != 0u)
         {
             /* 报告帧：正常路径 */
@@ -117,19 +167,29 @@ void wireless_rx_poll(void)
             rx_expect  = (uint16_t)(seq + 1u);
             rx_started = 1u;
 
-            /* 探针配对：必须在 send_report() 之前 —— 先开测量，DataIn 才会把 t2 收尾。
-               帧里带的是【上一帧】的 t1（见 proto.h 的 PROTO_T1_OFS）。 */
-            LatencyProbe_OnRxFrame(seq,
-                (uint16_t)((uint16_t)frame[PROTO_T1_OFS] |
-                           ((uint16_t)frame[PROTO_T1_OFS + 1u] << 8)));
+            /* ---- 第 9 步：只接受已配对的 ID ----
+               0 = 学习模式（还没配过），全收；
+               非 0 = 已配对，别人的包直接丢，也不更新链路（那不是我们的链路）。 */
+            if ((wrx_paired_id != 0u) && (dev_id != wrx_paired_id))
+            {
+                wrx_pair_rej++;
+            }
+            else
+            {
+                /* 探针配对：必须在 send_report() 之前 —— 先开测量，DataIn 才会把 t2 收尾。
+                   帧里带的是【上一帧】的 t1（见 proto.h 的 PROTO_T1_OFS）。 */
+                LatencyProbe_OnRxFrame(seq,
+                    (uint16_t)((uint16_t)frame[PROTO_T1_OFS] |
+                               ((uint16_t)frame[PROTO_T1_OFS + 1u] << 8)));
 
-            memcpy(gamepad_report, report, PROTO_REPORT_LEN);
-            send_report();
-            wrx_usb_sent++;
+                memcpy(gamepad_report, report, PROTO_REPORT_LEN);
+                send_report();
+                wrx_usb_sent++;
 
-            wrx_ok++;
-            wrx_last_seq = seq;
-            wrx_link_up  = proto_link_on_ok(now);
+                wrx_ok++;
+                wrx_last_seq = seq;
+                wrx_link_up  = proto_link_on_ok(now);
+            }
         }
         else
         {

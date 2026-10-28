@@ -27,7 +27,7 @@
    0 = 手柄（本地按键/摇杆 → 无线发）
    1 = dongle（无线收 → USB 发）
    ⚠️ 必须定义在 app.h（而不是 main.c）—— 因为 app.c 只看得到这个头文件。 */
-#define DEVICE_ROLE  DEVICE_ROLE_HANDHELD   /* ← 只改这个宏的值（0 = 手柄 / 1 = dongle），别烧反 */
+#define DEVICE_ROLE  DEVICE_ROLE_DONGLE   /* ← 只改这个宏的值（0 = 手柄 / 1 = dongle），别烧反 */
 
 /* ============================ 通道（第 7 步）============================
    手柄侧才真正"切"通道；dongle 侧固定走 USB（它就是唯一的输出口）。
@@ -53,6 +53,15 @@ extern volatile uint32_t app_usb_lost;      /* 检测到 USB 掉线次数 */
 extern volatile uint32_t app_usb_back;      /* USB 恢复次数 */
 extern volatile uint8_t  app_dev_state;     /* 最近一次读到的 hUsbDeviceFS.dev_state
                                                （3 = CONFIGURED；拔线后应是 4 = SUSPENDED 或 1 = DEFAULT） */
+
+/* ============================ 配对（第 9 步）============================ */
+
+/**
+ * @brief 设备 ID
+ * @note  手柄 = 自己的 ID（1~255，首次上电用芯片 UID 生成并存 Flash）；
+ *        dongle = 它配对的对方（0 = 学习模式）。
+ */
+uint8_t app_dev_id(void);
 
 /* 时基对拍计数器（2026-10-23 加，验 Q6 的"tick 是否偏慢 4.86%"）
    判读：app_tick 每 1ms 跑一次，所以 tick_probe_app 应 ≈ tick_probe_hal。

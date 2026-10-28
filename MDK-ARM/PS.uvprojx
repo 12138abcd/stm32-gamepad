@@ -440,6 +440,11 @@
               <FilePath>..\Core\Src\nrf24.c</FilePath>
             </File>
             <File>
+              <FileName>param_store.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\param_store.c</FilePath>
+            </File>
+            <File>
               <FileName>nrf24_test.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Core\Src\test\nrf24_test.c</FilePath>

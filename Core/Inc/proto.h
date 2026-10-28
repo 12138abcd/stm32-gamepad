@@ -33,7 +33,9 @@
 #define PROTO_TYPE_REPORT     0x01u  /* 帧类型：报告帧（dongle 写 gamepad_report + 发 USB） */
 #define PROTO_TYPE_HEARTBEAT  0x02u  /* 帧类型：心跳（第 7 步；有线模式下每 20ms 一帧保活，
                                          dongle 只更新链路状态，【不】写报告、【不】发 USB） */
-#define PROTO_DEV_ID_UNPAIRED 0x00u  /* 设备 ID：未配对 */
+#define PROTO_TYPE_PAIR       0x03u  /* 帧类型：配对帧（第 9 步；手柄上电后前 2 秒发，
+                                         dongle 在 10 秒学习窗口内记住它的 dev_id） */
+#define PROTO_DEV_ID_UNPAIRED 0x00u  /* 设备 ID：0 = 未配对（dongle 侧表示"学习模式"）*/
 
 /* 校验和覆盖范围：前 13 字节（0~12） */
 #define PROTO_SUM_LEN         13u

@@ -65,8 +65,10 @@ uint8_t proto_verify(const uint8_t in[PROTO_FRAME_LEN])
 {
     uint16_t sum;
 
-    /* 类型必须是已知类型（报告帧 / 心跳帧），否则不是我们的包 */
-    if ((in[11] != PROTO_TYPE_REPORT) && (in[11] != PROTO_TYPE_HEARTBEAT))
+    /* 类型必须是已知类型（报告帧 / 心跳帧 / 配对帧），否则不是我们的包 */
+    if ((in[11] != PROTO_TYPE_REPORT) &&
+        (in[11] != PROTO_TYPE_HEARTBEAT) &&
+        (in[11] != PROTO_TYPE_PAIR))
     {
         return 0u;
     }

@@ -23,6 +23,7 @@
 #define WTX_ITEM_LEN      (PROTO_REPORT_LEN + 1u)  /* 9 字节报告 + 1 字节帧类型 */
 #define WTX_GET_TIMEOUT   5u      /* 取队列超时：越短，切通道响应越快 */
 #define WTX_HEARTBEAT_MS  20u     /* 心跳间隔：50 帧/秒，远小于 dongle 的 100ms 超时 */
+#define WTX_PAIR_WINDOW_MS 2000u  /* 第 9 步：上电后前 2 秒发配对帧（让 dongle 记下 dev_id）*/
 
 static osMessageQueueId_t txQueue = NULL;
 static uint16_t           txSeq   = 0u;
@@ -68,6 +69,13 @@ void wireless_tx_on_tick(void)
         type   = PROTO_TYPE_REPORT;
     }
 
+    /* 第 9 步：上电后前 2 秒，帧类型改成【配对帧】（让 dongle 记住这个 dev_id）。
+       有线模式也发 —— 配对跟走哪条通道无关。 */
+    if (HAL_GetTick() < WTX_PAIR_WINDOW_MS)
+    {
+        type = PROTO_TYPE_PAIR;
+    }
+
     memcpy(item, gamepad_report, PROTO_REPORT_LEN);
     item[PROTO_REPORT_LEN] = type;
 
@@ -103,8 +111,9 @@ void wireless_tx_task(void *argument)
 
         type = item[PROTO_REPORT_LEN];
 
-        /* t1 只能"晚一帧"带出去：帧要先组好，而 t1 要等发送完才知道。 */
-        proto_pack_ex(item, txSeq, PROTO_DEV_ID_UNPAIRED, type, wprobe_t1_out, frame);
+        /* t1 只能"晚一帧"带出去：帧要先组好，而 t1 要等发送完才知道。
+           第 9 步：dev_id 换成自己配对到的 ID（不再是固定的 0）。 */
+        proto_pack_ex(item, txSeq, app_dev_id(), type, wprobe_t1_out, frame);
         ret = nrf24_send(frame, PROTO_FRAME_LEN, 50u);
 
         /* 探针终点：TX_OK = 收到 ACK = dongle 已收到，所以空中时间已含在这一段里。

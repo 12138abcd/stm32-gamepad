@@ -6,27 +6,13 @@
  *   摇杆（双极性）：中心 128，两侧各自到 0 / 255   —— axis_map()
  *   扳机（单极性）：0 = 松开、255 = 到底           —— trig_map()
  *
- * @note 标定常量是 2026-10-07 加 ADC 校准之后实测的（两平台取平均）。
- *       ⚠️ 换摇杆 / 换板子 / 拆装之后必须重测，别照抄。
+ * @note 摇杆校准常量已移到 Flash（`param_store.c` 里的默认值 = 2026-10-07 实测值），
+ *       这里从 param_get() 读。⚠️ 换摇杆 / 换板子 / 拆装之后必须重新标定。
  */
 
 #include "analog_input.h"
 #include "report.h"        /* gamepad_report[] */
-
-/* 摇杆标定（12 位原始值）。理论中位 2048，实测偏高 11~35 —— 机械中位与电气中位不重合，正常。 */
-#define JS_LX_CENTER   2060
-#define JS_LY_CENTER   2059
-#define JS_LX_HALF_L   2059
-#define JS_LX_HALF_R   2035
-#define JS_LY_HALF_U   2058
-#define JS_LY_HALF_D   2036
-
-#define JS_RX_CENTER   2052
-#define JS_RX_HALF_L   2051
-#define JS_RX_HALF_R   2043
-#define JS_RY_CENTER   2083
-#define JS_RY_HALF_U   2082
-#define JS_RY_HALF_D   2012
+#include "param_store.h"   /* 摇杆校准常量 */
 
 /* 死区（8 位报告值）：5 ≈ 满量程 2%。实测静置噪声峰峰 3~7 counts（映射后 < 1 LSB），
    这个值偏保守；想更灵敏可以试 3。左右摇杆共用。 */
@@ -77,11 +63,13 @@ static uint8_t trig_map(uint16_t raw)
 
 void analog_update(void)
 {
+    const pad_params_t *p = param_get();   /* 校准常量来自 Flash */
+
     /* 摇杆（双极性）：byte3 = X、byte4 = Y、byte5 = Rx、byte6 = Ry */
-    gamepad_report[3] = axis_map(adc_buf[0], JS_LX_CENTER, JS_LX_HALF_L, JS_LX_HALF_R);
-    gamepad_report[4] = axis_map(adc_buf[1], JS_LY_CENTER, JS_LY_HALF_U, JS_LY_HALF_D);
-    gamepad_report[5] = axis_map(adc_buf[2], JS_RX_CENTER, JS_RX_HALF_L, JS_RX_HALF_R);
-    gamepad_report[6] = axis_map(adc_buf[3], JS_RY_CENTER, JS_RY_HALF_U, JS_RY_HALF_D);
+    gamepad_report[3] = axis_map(adc_buf[0], p->js_lx_center, p->js_lx_half_l, p->js_lx_half_r);
+    gamepad_report[4] = axis_map(adc_buf[1], p->js_ly_center, p->js_ly_half_u, p->js_ly_half_d);
+    gamepad_report[5] = axis_map(adc_buf[2], p->js_rx_center, p->js_rx_half_l, p->js_rx_half_r);
+    gamepad_report[6] = axis_map(adc_buf[3], p->js_ry_center, p->js_ry_half_u, p->js_ry_half_d);
 
     /* 扳机（单极性）：byte7 = Z = 左扳机、byte8 = Rz = 右扳机 */
     gamepad_report[7] = trig_map(adc_buf[4]);

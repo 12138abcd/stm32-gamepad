@@ -30,4 +30,10 @@ extern volatile uint32_t wrx_usb_sent;  /* 转给 USB 的报告帧数 */
 extern volatile uint32_t wrx_heartbeat; /* 收到的心跳帧数（有线模式下应 ≈50/秒） */
 extern volatile uint32_t wrx_idle_sent; /* 断线时补发的空闲报告数 */
 
+/* ---- 第 9 步：配对 ---- */
+extern volatile uint8_t  wrx_paired_id; /* 已配对的 ID；0 = 未配对 / 学习模式 */
+extern volatile uint32_t wrx_pair_ok;   /* 配对成功次数 */
+extern volatile uint32_t wrx_pair_rej;  /* 因 ID 不匹配被丢弃的帧数 */
+extern volatile uint32_t wrx_pair_drop; /* 窗口外收到的配对帧数 */
+
 #endif /* __WIRELESS_RX_H */
