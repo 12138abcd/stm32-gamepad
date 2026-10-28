@@ -279,21 +279,63 @@ CubeMX 生成的 `usb_device.h` **没有**为 `hUsbDeviceFS` 提供 `extern` 声
 ## 九、目录结构
 
 ```
-Core/
-  Inc/  Src/        CubeMX 生成的外设初始化 + 应用层
-    button_front.c  按键扫描、消抖状态机、Hat 编码
-    joystick.c      摇杆 ADC → 轴值（中心校准 + 行程拉伸 + 死区）
-    report.c        HID 报告缓冲区与发送
-    latency_probe.c 可选的延迟测量模块（DWT 计时 + 直方图分位数）
-                    总开关在它的头文件里，关掉后一行机器码都不占
-USB_DEVICE/         USB 设备描述符与 Custom HID 类接口
-  App/usbd_custom_hid_if.c   报告描述符数组在这里
-  Target/usbd_conf.h         REPORT_DESC_SIZE 在这里
-Middlewares/        ST USB 设备库
-Drivers/            HAL 与 CMSIS
-MDK-ARM/            Keil 工程
-PS.ioc              CubeMX 工程定义
+D:\Desktop\PS\PS\
+├─ Core/
+│  ├─ Inc/                          头文件（17 个）
+│  │   app.h                        角色宏（HANDHELD / DONGLE）+ 通道宏
+│  │   button_front.h               按键扫描接口
+│  │   analog_input.h               摇杆 / 扳机映射接口
+│  │   report.h                     HID 报告缓冲区 + 发送
+│  │   latency_probe.h              延迟测量开关与接口
+│  │   nrf24.h                      nRF24L01+ 驱动接口
+│  │   proto.h                      无线协议（帧格式 / 校验 / 断线）
+│  │   wireless_tx.h                手柄端发送接口
+│  │   wireless_rx.h                dongle 端接收接口
+│  │   param_store.h                Flash 参数存储
+│  │   main.h                       引脚宏（CubeMX 生成）
+│  │   FreeRTOSConfig.h             RTOS 配置（含 4 个补丁）
+│  │   stm32f1xx_hal_conf.h         HAL 配置
+│  │   stm32f1xx_it.h               中断声明
+│  │   nrf24_test.h / p2p.h / proto_test.h    测试模块接口
+│  └─ Src/                          源文件（17 个 + test/ 3 个）
+│      main.c                       初始化 + 1ms 主任务（app_tick）
+│      app.c                    ★   总入口：按角色调度 + 通道状态机
+│      button_front.c               12 个按键 → 消抖 → 报告 byte0 / 1 / 2
+│      analog_input.c               6 路 ADC → 映射 → 报告 byte3~8
+│      report.c                     HID 报告缓冲区 + USB 发送 + 编译期断言
+│      latency_probe.c          ★   延迟测量（DWT 计时 + 直方图分位数）
+│      nrf24.c                      nRF24 驱动（SPI / 模式切换 / 收发）
+│      proto.c                      无线协议（组帧 / 校验 / 断线状态机）
+│      wireless_tx.c                手柄端发送（队列 + 独立任务）
+│      wireless_rx.c                dongle 端接收（帧分流 + 断线空闲报告）
+│      param_store.c            ★   Flash 参数存储（双备份 + CRC32）
+│      freertos.c                   空文件（任务在 main.c 里）
+│      stm32f1xx_hal_msp.c          外设底层初始化（NOJTAG 在这）
+│      stm32f1xx_hal_timebase_tim.c TIM4 当 HAL 时基
+│      stm32f1xx_it.c               中断入口
+│      system_stm32f1xx.c           时钟初值
+│      test/
+│        nrf24_test.c               驱动自检（5 项判据）
+│        p2p.c                      点对点测试（第 4 步）
+│        proto_test.c               协议测试（第 5 步）
+├─ USB_DEVICE/
+│  ├─ App/
+│  │   usbd_custom_hid_if.c     ★   78 字节报告描述符
+│  │   usbd_desc.c                  设备描述符（VID / PID / 名字）
+│  │   usb_device.c                 USB 初始化
+│  └─ Target/
+│      usbd_conf.c              ★   USB 底层回调（探针钩子 + 中断优先级 4）
+│      usbd_conf.h              ★   端点三件套（78 / 9 / 1）
+├─ Middlewares/                     ST USB 设备库 + FreeRTOS
+├─ Drivers/                         HAL + CMSIS
+├─ MDK-ARM/                         Keil 工程（PS.uvprojx）
+└─ PS.ioc                           CubeMX 工程定义
 ```
+
+**★ = 最值得先看的四个文件**：`app.c`（调度）、`latency_probe.c`（测量）、`param_store.c`（存储）、`usbd_conf.c`（USB 钩子）。
+
+> ⚠️ **`PS.ioc` 一旦 GENERATE，会重写 `main.c` / `usbd_conf.c` / `stm32f1xx_hal_msp.c` 等生成文件**。
+> 手写内容都在 `USER CODE BEGIN/END` 区里，但**端点三件套（78/9/1）和 FreeRTOS 补丁仍会被刷回**——有编译期断言兜底。
 
 ---
 

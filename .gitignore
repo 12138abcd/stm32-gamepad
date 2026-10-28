@@ -53,6 +53,10 @@ Desktop.ini
 .vscode/
 .idea/
 
+# clangd / VS Code C/C++ 扩展生成的语言服务数据库：
+# 里面是【本机绝对路径】（D:\Keil_v5\...），换台机器就失效，属于产物不是源码。
+compile_commands.json
+
 # ---------- CMSIS 里本项目用不到的大块头 ----------
 # CubeMX 会把整个 CMSIS 包拷进工程目录，其中 CMSIS-DSP 和 ARM/IAR/GCC 三套预编译
 # 数学库合计 50+ MB，而本工程既没引用也没链接它们——PS.uvprojx 的 IncludePath 里
