@@ -17,6 +17,7 @@
 #include "report.h"
 #include "latency_probe.h"   /* 无线探针的起点 / 配对 */
 #include "param_store.h"     /* 第 9 步：配对 ID 存 Flash */
+#include "wdt.h"             /* 第 10 步：写 Flash 前后喂 WWDG */
 #include "cmsis_os.h"
 #include <string.h>
 
@@ -55,6 +56,12 @@ static uint8_t  rx_started   = 0u;   /* 是否已收到第一帧 */
 static uint8_t  idle_first   = 1u;   /* 1 = 本次断线还没发过（进来先立刻发一次） */
 static uint32_t idle_last_ms = 0u;
 
+/* 第 10 步：配对结果的“待落盘”缓存。
+   Flash 擦页约 20~40ms，不能放在 1ms 任务里 —— 会撞 WWDG 的窗口/超时。
+   配对帧只登记，真正写入交给 dongle 的 appTask（wireless_rx_flush_save）。 */
+static pad_params_t     rx_pending_params;
+static volatile uint8_t rx_pending_valid = 0u;
+
 void wireless_rx_init(void)
 {
     nrf24_init();
@@ -64,6 +71,28 @@ void wireless_rx_init(void)
 
     /* 第 9 步：从 Flash 读"要接受哪个 ID"（0 = 还没配过，进入学习模式）*/
     wrx_paired_id = (uint8_t)(param_get()->dev_id & 0xFFu);
+}
+
+/* 第 10 步：真正把配对参数写进 Flash（只由 dongle 的 appTask 调用）。
+   取走缓存和清标志放临界区，防止 1ms 任务在拷贝中途登记新的配对。 */
+void wireless_rx_flush_save(void)
+{
+    pad_params_t p;
+    uint32_t primask;
+
+    if (rx_pending_valid == 0u) { return; }
+
+    primask = __get_PRIMASK();
+    __disable_irq();
+    p = rx_pending_params;
+    rx_pending_valid = 0u;
+    __set_PRIMASK(primask);
+
+    /* 第 10 步：Flash 擦除会 stall 整个 CPU 20~40ms。
+       先喂满 WWDG（必要时等过窗口内侧），写完立刻补喂 —— 58ms 预算够。 */
+    wdt_flash_begin();
+    (void)param_set(&p);
+    wdt_flash_end();
 }
 
 void wireless_rx_poll(void)
@@ -144,8 +173,19 @@ void wireless_rx_poll(void)
                 if ((dev_id != 0u) && (dev_id != wrx_paired_id))
                 {
                     pad_params_t p = *param_get();
+                    uint32_t primask;
+
                     p.dev_id = (uint16_t)dev_id;
-                    (void)param_set(&p);       /* 存 Flash，掉电不丢 */
+
+                    /* 第 10 步：只登记、不在这里擦 Flash ——
+                       1ms 任务里擦页 20~40ms 会撞 WWDG。
+                       真正写入由 appTask 调 wireless_rx_flush_save() 完成。 */
+                    primask = __get_PRIMASK();
+                    __disable_irq();
+                    rx_pending_params = p;
+                    rx_pending_valid  = 1u;
+                    __set_PRIMASK(primask);
+
                     wrx_paired_id = dev_id;
                     wrx_pair_ok++;
                 }

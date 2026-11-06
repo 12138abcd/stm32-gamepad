@@ -41,6 +41,8 @@
 #include "app.h"             /* 无线第 6 步：应用层总入口
                                 ⚠️ 角色开关 DEVICE_ROLE 在 app.h 里（不在这里定义！） */
 
+#include "wdt.h"             /* 第 10 步：双层看门狗（IWDG + WWDG） */
+
 /* ================== 运行模式（四选一，从上到下优先）==================
    APP_MODE = 1        → 第 6 步：应用层（手柄发 / dongle 收 → USB）
    PROTO_TEST_MODE = 1 → 第 5 步：协议测试（proto_test.c）
@@ -122,6 +124,12 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
+
+  /* 第 10 步：双层看门狗第 1 层（IWDG 1s）。
+     放在外设初始化之前 —— 初始化里任何一步卡死，1s 后都会被复位。
+     代价：从这一行起 1s 内必须开始喂狗（1ms 任务启动后会喂）。
+     复位原因（IWDG / WWDG / POR / 引脚）在这一行被读走并记进 BKP。 */
+  wdt_init();
 
   /* USER CODE END SysInit */
 
@@ -457,6 +465,10 @@ void StartDefaultTask(void *argument)
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 5 */
+  /* 第 10 步：WWDG 必须在 USB 初始化【之后】开 ——
+     MX_USB_DEVICE_Init 可能花几十 ms，早开会被 58ms 超时误复位。 */
+  wdt_wwdg_start();
+  wdt_task_arm(WDT_TASK_INPUT);   /* 本任务已进入主循环，开始参与心跳检查 */
   /* 1ms 周期任务：原来 main() 主循环里的四件事搬到这里。
         ⚠️ 必须用 vTaskDelayUntil（绝对周期），不能用 vTaskDelay / osDelay（相对延迟）——
               后者会把本任务的执行时间累积成周期抖动，直接毁掉延迟指标。
@@ -483,6 +495,13 @@ void StartDefaultTask(void *argument)
 		nrf24_test_poll();        /* 第 3 步：100ms 读一次 nRF24 STATUS */
   #endif
 #endif
+
+    /* 第 10 步：1ms 循环末尾 —— 先报“本任务还活着”，
+       再让监督逻辑检查其他任务的心跳、按条件喂 IWDG、按节拍喂 WWDG。
+       ⚠️ 必须放在本轮活全干完之后：放开头等于没检查。 */
+    wdt_heartbeat(WDT_TASK_INPUT);
+    wdt_loop_hook();
+
     vTaskDelayUntil(&last, pdMS_TO_TICKS(1));
   }
   /* USER CODE END 5 */

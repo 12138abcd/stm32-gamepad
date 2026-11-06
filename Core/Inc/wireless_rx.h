@@ -18,6 +18,12 @@
 void wireless_rx_init(void);   /* 上电调一次：nrf24_init + 进接收模式 */
 void wireless_rx_poll(void);   /* 1ms 任务里调：收包 + 分流 + 转 USB */
 
+/**
+ * @brief  第 10 步：把配对结果写进 Flash（dongle 的 appTask 调，10ms 一次）
+ * @note   为什么不在 1ms 任务里直接写：Flash 擦页 20~40ms，会撞 WWDG 的窗口/超时。
+ */
+void wireless_rx_flush_save(void);
+
 /* ================== 统计量（Watch 观察）================== */
 extern volatile uint32_t wrx_ok;        /* 收到合法【报告帧】且校验全过 */
 extern volatile uint32_t wrx_bad_type;  /* 帧类型不认识 */

@@ -13,6 +13,7 @@
 #include "cmsis_os.h"
 #include "report.h"
 #include "param_store.h"    /* Flash 参数（校准常量 / 配对 ID）*/
+#include "wdt.h"            /* 第 10 步：任务心跳 / 双层看门狗 */
 
 #if DEVICE_ROLE == DEVICE_ROLE_HANDHELD
   #include "button_front.h"
@@ -148,7 +149,19 @@ void app_init(void)
     wireless_tx_init();   /* nrf24_init + 建队列 */
     appTaskHandle = osThreadNew(app_task, NULL, &attr);
 #else
+    static const osThreadAttr_t attr = {
+        .name       = "appTask",
+        .stack_size = 256 * 4,
+        .priority   = (osPriority_t) osPriorityBelowNormal,
+    };
+
     wireless_rx_init();   /* nrf24_init + 进接收模式 */
+
+    /* 第 10 步：dongle 也需要一个 appTask ——
+       第 9 步的配对结果要写 Flash，擦页 20~40ms，不能放在 1ms 任务里（会撞 WWDG）。
+       这个任务只做一件事：把 wireless_rx 登记的“待落盘参数”写进 Flash。
+       句柄用不到，直接丢弃返回值。 */
+    (void)osThreadNew(app_task, NULL, &attr);
 #endif
 }
 
@@ -179,9 +192,20 @@ void app_tick(void)
 void app_task(void *argument)
 {
 #if DEVICE_ROLE == DEVICE_ROLE_HANDHELD
-    wireless_tx_task(argument);
+    wireless_tx_task(argument);    /* 心跳在 wireless_tx_task 里报 */
 #else
     (void)argument;
-    for (;;) { osDelay(1000u); }   /* dongle 不需要独立任务 */
+
+    wdt_task_arm(WDT_TASK_APP);
+
+    for (;;)
+    {
+        /* 第 10 步：配对结果在这里落盘（param_set 擦页 20~40ms）。
+           放在 1ms 任务里会撞 WWDG；放这里两不耽误。 */
+        wireless_rx_flush_save();
+
+        wdt_heartbeat(WDT_TASK_APP);
+        osDelay(10u);
+    }
 #endif
 }

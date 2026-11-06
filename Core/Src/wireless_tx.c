@@ -17,6 +17,7 @@
 #include "app.h"            /* app_is_wired() */
 #include "latency_probe.h"  /* 无线探针的终点 */
 #include "cmsis_os.h"
+#include "wdt.h"            /* 第 10 步：向看门狗报活 */
 #include <string.h>
 
 #define WTX_QUEUE_DEPTH   2u      /* 深度 2 足够：1ms 生产、约 3ms 消费 */
@@ -102,8 +103,16 @@ void wireless_tx_task(void *argument)
 
     osDelay(500u);          /* 等 dongle 上电 + 进接收模式 */
 
+    /* 第 10 步：500ms 启动等待【结束之后】才武装心跳 ——
+       提前武装的话，这段等待会被监督逻辑当成"任务卡死"。 */
+    wdt_task_arm(WDT_TASK_APP);
+
     for (;;)
     {
+        /* 第 10 步：每圈都报活 —— 包括队列超时的那一圈。
+           本任务最坏阻塞是 nrf24_send 的 50ms 超时，远小于 200ms 的心跳阈值。 */
+        wdt_heartbeat(WDT_TASK_APP);
+
         if (osMessageQueueGet(txQueue, item, NULL, WTX_GET_TIMEOUT) != osOK)
         {
             continue;
